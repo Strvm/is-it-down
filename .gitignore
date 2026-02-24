@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+
+# Virtualenvs
+.venv/
+
+# Env files
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+
+# Build artifacts
+dist/
+build/
+
+# Local databases
+*.db
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
