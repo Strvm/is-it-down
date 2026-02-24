@@ -14,7 +14,7 @@ Create new service checker modules that match this repository's checker architec
 - Set `service_key`.
 - Set `official_uptime` to the official status page URL when available.
 - Set `dependencies` as `Sequence[type[BaseServiceChecker]]` using checker class references (not strings).
-3. Define one or more `BaseCheck` subclasses:
+3. Define a MINIMUN 3 (or more) `BaseCheck` subclasses:
 - Set `check_key`, `endpoint_key`, `interval_seconds`, `timeout_seconds`.
 - Set `weight` only when needed. Keep unspecified weights as `None`.
 
