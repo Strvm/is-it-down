@@ -8,6 +8,7 @@ from is_it_down.checkers.utils import apply_statuspage_indicator, response_laten
 from is_it_down.core.models import CheckResult
 
 
+
 class DiscordGatewayCheck(BaseCheck):
     check_key = "discord_gateway"
     endpoint_key = "https://discord.com/api/v9/gateway"
