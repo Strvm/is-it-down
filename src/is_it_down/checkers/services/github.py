@@ -107,7 +107,7 @@ class GitHubHomepageCheck(BaseCheck):
 class GitHubServiceChecker(BaseServiceChecker):
     service_key = "github"
     official_uptime = "https://www.githubstatus.com/"
-    dependencies: Sequence[str] = ()
+    dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
         return [

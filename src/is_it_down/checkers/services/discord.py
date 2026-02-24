@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
 from is_it_down.checkers.utils import apply_statuspage_indicator, response_latency_ms, status_from_http
 from is_it_down.core.models import CheckResult
 
@@ -89,7 +90,7 @@ class DiscordStatusPageCheck(BaseCheck):
 class DiscordServiceChecker(BaseServiceChecker):
     service_key = "discord"
     official_uptime = "https://discordstatus.com/"
-    dependencies: Sequence[str] = ("cloudflare",)
+    dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         return [DiscordGatewayCheck(), DiscordCDNAvatarCheck(), DiscordStatusPageCheck()]

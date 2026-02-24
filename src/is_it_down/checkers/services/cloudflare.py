@@ -36,7 +36,7 @@ class CloudflareStatusAPICheck(BaseCheck):
 class CloudflareServiceChecker(BaseServiceChecker):
     service_key = "cloudflare"
     official_uptime = "https://www.cloudflarestatus.com/"
-    dependencies: Sequence[str] = ()
+    dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
         return [CloudflareStatusAPICheck()]

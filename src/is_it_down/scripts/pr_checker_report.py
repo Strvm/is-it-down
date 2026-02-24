@@ -46,6 +46,21 @@ def _service_checker_path(service_checker_cls: type[BaseServiceChecker]) -> str:
     return f"{service_checker_cls.__module__}.{service_checker_cls.__name__}"
 
 
+def _dependency_service_keys_safe(checker: BaseServiceChecker) -> list[str]:
+    try:
+        return checker.dependency_service_keys()
+    except Exception:
+        dependencies = getattr(checker, "dependencies", ())
+        keys: list[str] = []
+        for dependency in dependencies:
+            dependency_key = getattr(dependency, "service_key", None)
+            if isinstance(dependency_key, str) and dependency_key:
+                keys.append(dependency_key)
+            else:
+                keys.append(str(dependency))
+        return keys
+
+
 def _service_module_path(module_name: str) -> str:
     return f"is_it_down.checkers.services.{module_name}"
 
@@ -137,7 +152,7 @@ async def run_selected_service_checkers(
                         service_key=run_result.service_key,
                         checker_class=checker_path,
                         official_uptime=checker.official_uptime,
-                        dependencies=list(checker.dependencies),
+                        dependencies=_dependency_service_keys_safe(checker),
                         changed_module=changed_module,
                         checks=check_payloads,
                         error=None,
@@ -149,7 +164,7 @@ async def run_selected_service_checkers(
                         service_key=getattr(checker, "service_key", checker_cls.__name__),
                         checker_class=checker_path,
                         official_uptime=getattr(checker, "official_uptime", None),
-                        dependencies=list(getattr(checker, "dependencies", ())),
+                        dependencies=_dependency_service_keys_safe(checker),
                         changed_module=changed_module,
                         checks=[],
                         error=str(exc),

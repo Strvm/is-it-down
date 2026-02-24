@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
 from is_it_down.checkers.utils import apply_statuspage_indicator, response_latency_ms, status_from_http
 from is_it_down.core.models import CheckResult
 
@@ -96,7 +97,7 @@ class RedditSubredditAboutCheck(BaseCheck):
 class RedditServiceChecker(BaseServiceChecker):
     service_key = "reddit"
     official_uptime = "https://www.redditstatus.com/"
-    dependencies: Sequence[str] = ("cloudflare",)
+    dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         return [

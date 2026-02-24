@@ -17,7 +17,12 @@ def test_all_service_checkers_follow_base_contracts() -> None:
         assert checker.service_key == service_key
 
         assert isinstance(checker.dependencies, Sequence)
-        assert checker.service_key not in checker.dependencies
+        dependency_keys = checker.dependency_service_keys()
+        assert checker.service_key not in dependency_keys
+        assert len(dependency_keys) == len(checker.dependencies)
+        for dependency in checker.dependencies:
+            assert isinstance(dependency, type)
+            assert issubclass(dependency, BaseServiceChecker)
 
         if checker.official_uptime is not None:
             assert checker.official_uptime.startswith("http://") or checker.official_uptime.startswith(

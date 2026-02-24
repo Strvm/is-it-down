@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
 from is_it_down.checkers.utils import response_latency_ms
 from is_it_down.core.models import CheckResult, ServiceStatus
 
@@ -174,7 +175,7 @@ class DestinyServiceChecker(BaseServiceChecker):
         "https://help.bungie.net/hc/en-us/articles/360049199271-"
         "Destiny-Server-and-Update-Status"
     )
-    dependencies: Sequence[str] = ("cloudflare",)
+    dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         return [
