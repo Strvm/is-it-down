@@ -1,16 +1,17 @@
 import argparse
 import asyncio
+import importlib
+import inspect
 import json
 import re
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import httpx
 
 from is_it_down.checkers.base import BaseServiceChecker
-from is_it_down.scripts.run_service_checker import discover_service_checkers
 from is_it_down.settings import get_settings
 
 COMMENT_MARKER = "<!-- is-it-down-checker-results -->"
@@ -45,25 +46,58 @@ def _service_checker_path(service_checker_cls: type[BaseServiceChecker]) -> str:
     return f"{service_checker_cls.__module__}.{service_checker_cls.__name__}"
 
 
+def _service_module_path(module_name: str) -> str:
+    return f"is_it_down.checkers.services.{module_name}"
+
+
+def _discover_service_checkers_for_module(
+    module_name: str,
+) -> tuple[list[type[BaseServiceChecker]], str | None]:
+    module_path = _service_module_path(module_name)
+
+    try:
+        module = importlib.import_module(module_path)
+    except Exception as exc:
+        return [], f"{exc.__class__.__name__}: {exc}"
+
+    discovered: list[type[BaseServiceChecker]] = []
+    for _, loaded in inspect.getmembers(module, inspect.isclass):
+        if not issubclass(loaded, BaseServiceChecker):
+            continue
+        if loaded is BaseServiceChecker:
+            continue
+        if loaded.__module__ != module_path:
+            continue
+        discovered.append(loaded)
+
+    if not discovered:
+        return [], "No BaseServiceChecker subclasses found in module."
+    return discovered, None
+
+
 def selected_service_checker_classes(
     changed_files: list[str],
 ) -> list[tuple[str, type[BaseServiceChecker]]]:
-    discovered = discover_service_checkers()
+    selected, _ = selected_service_checker_classes_with_errors(changed_files)
+    return selected
+
+
+def selected_service_checker_classes_with_errors(
+    changed_files: list[str],
+) -> tuple[list[tuple[str, type[BaseServiceChecker]]], dict[str, str]]:
     modules = changed_service_checker_modules(changed_files)
 
-    module_to_checkers: dict[str, list[type[BaseServiceChecker]]] = {}
-    for checker_cls in discovered.values():
-        module_name = checker_cls.__module__.split(".")[-1]
-        module_to_checkers.setdefault(module_name, []).append(checker_cls)
-
     selected: list[tuple[str, type[BaseServiceChecker]]] = []
+    module_errors: dict[str, str] = {}
     for module_name in modules:
-        checker_classes = module_to_checkers.get(module_name)
-        if checker_classes is None:
+        checker_classes, module_error = _discover_service_checkers_for_module(module_name)
+        if module_error is not None:
+            module_errors[module_name] = module_error
             continue
+
         for checker_cls in sorted(checker_classes, key=lambda loaded: loaded.service_key):
             selected.append((module_name, checker_cls))
-    return selected
+    return selected, module_errors
 
 
 async def run_selected_service_checkers(
@@ -144,6 +178,7 @@ def render_comment_markdown(
     changed_files: list[str],
     selected_modules: list[str],
     results: list[CheckerExecutionResult],
+    module_errors: Mapping[str, str] | None = None,
 ) -> str:
     lines: list[str] = [COMMENT_MARKER, "## Service Checker Preview"]
 
@@ -159,6 +194,12 @@ def render_comment_markdown(
     lines.append("Changed service checker modules:")
     for module_name in selected_modules:
         lines.append(f"- `{module_name}`")
+
+    if module_errors:
+        lines.append("")
+        lines.append("Module import/discovery issues:")
+        for module_name in sorted(module_errors):
+            lines.append(f"- `{module_name}`: `{module_errors[module_name]}`")
 
     lines.append("")
     lines.append("| Service | Checker | Dependencies | Result |")
@@ -234,23 +275,40 @@ def main() -> None:
     if not isinstance(changed_files, list) or not all(isinstance(item, str) for item in changed_files):
         raise ValueError("--changed-files-json must decode into a list of strings.")
 
-    selected = selected_service_checker_classes(changed_files)
-    selected_modules = [module_name for module_name, _ in selected]
+    changed_modules = changed_service_checker_modules(changed_files)
+    selected, module_errors = selected_service_checker_classes_with_errors(changed_files)
+    selected_modules = changed_modules
 
     results: list[CheckerExecutionResult] = []
     if selected:
         results = asyncio.run(run_selected_service_checkers(selected))
 
+    for module_name, module_error in sorted(module_errors.items()):
+        results.append(
+            CheckerExecutionResult(
+                service_key=module_name,
+                checker_class=_service_module_path(module_name),
+                official_uptime=None,
+                dependencies=[],
+                changed_module=module_name,
+                checks=[],
+                error=module_error,
+            )
+        )
+
     markdown = render_comment_markdown(
         changed_files=changed_files,
         selected_modules=selected_modules,
         results=results,
+        module_errors=module_errors,
     )
 
     payload = {
         "generated_at": datetime.now(UTC).isoformat(),
         "changed_files": changed_files,
+        "changed_modules": changed_modules,
         "selected_modules": selected_modules,
+        "module_errors": module_errors,
         "results": [asdict(result) for result in results],
     }
 
