@@ -84,7 +84,7 @@ class DestinyManifestCheck(_BungiePlatformCheck):
     endpoint_key = "https://www.bungie.net/Platform/Destiny2/Manifest/"
     interval_seconds = 60
     timeout_seconds = 6.0
-    weight = 1.2
+    weight = 0.5
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
@@ -115,7 +115,6 @@ class DestinyGlobalAlertsCheck(_BungiePlatformCheck):
     endpoint_key = "https://www.bungie.net/Platform/GlobalAlerts/?includestreaming=false"
     interval_seconds = 60
     timeout_seconds = 6.0
-    weight = 0.8
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
@@ -145,7 +144,6 @@ class DestinyClanBannerDictionaryCheck(_BungiePlatformCheck):
     endpoint_key = "https://www.bungie.net/Platform/Destiny2/Clan/ClanBannerDictionary/"
     interval_seconds = 60
     timeout_seconds = 6.0
-    weight = 1.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)

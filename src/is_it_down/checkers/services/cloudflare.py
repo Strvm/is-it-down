@@ -13,7 +13,6 @@ class CloudflareStatusAPICheck(BaseCheck):
     endpoint_key = "https://www.cloudflarestatus.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 4.0
-    weight = 1.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)

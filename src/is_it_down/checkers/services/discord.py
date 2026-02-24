@@ -13,7 +13,7 @@ class DiscordGatewayCheck(BaseCheck):
     endpoint_key = "https://discord.com/api/v9/gateway"
     interval_seconds = 60
     timeout_seconds = 5.0
-    weight = 1.2
+    weight = 0.5
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
@@ -41,7 +41,6 @@ class DiscordCDNAvatarCheck(BaseCheck):
     endpoint_key = "https://cdn.discordapp.com/embed/avatars/0.png"
     interval_seconds = 60
     timeout_seconds = 5.0
-    weight = 1.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
@@ -66,7 +65,6 @@ class DiscordStatusPageCheck(BaseCheck):
     endpoint_key = "https://discordstatus.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
-    weight = 0.8
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)

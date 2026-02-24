@@ -14,7 +14,7 @@ class GitHubApiRateLimitCheck(BaseCheck):
     endpoint_key = "https://api.github.com/rate_limit"
     interval_seconds = 60
     timeout_seconds = 5.0
-    weight = 1.2
+    weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(
@@ -54,7 +54,7 @@ class GitHubStatusPageCheck(BaseCheck):
     endpoint_key = "https://www.githubstatus.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
-    weight = 1.0
+    weight = 0.35
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
@@ -83,7 +83,6 @@ class GitHubHomepageCheck(BaseCheck):
     endpoint_key = "https://github.com/"
     interval_seconds = 60
     timeout_seconds = 5.0
-    weight = 0.8
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
