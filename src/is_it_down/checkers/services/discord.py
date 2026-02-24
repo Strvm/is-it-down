@@ -5,7 +5,12 @@ import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
-from is_it_down.checkers.utils import apply_statuspage_indicator, response_latency_ms, status_from_http
+from is_it_down.checkers.utils import (
+    add_non_up_debug_metadata,
+    apply_statuspage_indicator,
+    response_latency_ms,
+    status_from_http,
+)
 from is_it_down.core.models import CheckResult
 
 
@@ -26,6 +31,8 @@ class DiscordGatewayCheck(BaseCheck):
             gateway_url = payload.get("url")
             if not gateway_url:
                 status = "degraded"
+        metadata = {"gateway_url_present": bool(gateway_url)}
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -33,7 +40,7 @@ class DiscordGatewayCheck(BaseCheck):
             observed_at=datetime.now(UTC),
             latency_ms=response_latency_ms(response),
             http_status=response.status_code,
-            metadata={"gateway_url_present": bool(gateway_url)},
+            metadata=metadata,
         )
 
 
@@ -50,6 +57,8 @@ class DiscordCDNAvatarCheck(BaseCheck):
         content_type = response.headers.get("content-type", "")
         if response.is_success and not content_type.startswith("image/"):
             status = "degraded"
+        metadata = {"content_type": content_type}
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -57,7 +66,7 @@ class DiscordCDNAvatarCheck(BaseCheck):
             observed_at=datetime.now(UTC),
             latency_ms=response_latency_ms(response),
             http_status=response.status_code,
-            metadata={"content_type": content_type},
+            metadata=metadata,
         )
 
 
@@ -76,6 +85,8 @@ class DiscordStatusPageCheck(BaseCheck):
             payload = response.json()
             indicator = payload.get("status", {}).get("indicator", "unknown")
             status = apply_statuspage_indicator(status, indicator)
+        metadata = {"indicator": indicator}
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -83,7 +94,7 @@ class DiscordStatusPageCheck(BaseCheck):
             observed_at=datetime.now(UTC),
             latency_ms=response_latency_ms(response),
             http_status=response.status_code,
-            metadata={"indicator": indicator},
+            metadata=metadata,
         )
 
 

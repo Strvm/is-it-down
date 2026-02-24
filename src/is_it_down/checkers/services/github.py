@@ -5,7 +5,12 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
-from is_it_down.checkers.utils import apply_statuspage_indicator, response_latency_ms, status_from_http
+from is_it_down.checkers.utils import (
+    add_non_up_debug_metadata,
+    apply_statuspage_indicator,
+    response_latency_ms,
+    status_from_http,
+)
 from is_it_down.core.models import CheckResult
 
 
@@ -38,6 +43,7 @@ class GitHubApiRateLimitCheck(BaseCheck):
 
             if not isinstance(limit, int):
                 status = "degraded"
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -67,6 +73,7 @@ class GitHubStatusPageCheck(BaseCheck):
             metadata["indicator"] = indicator
 
             status = apply_statuspage_indicator(status, indicator)
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -93,6 +100,7 @@ class GitHubHomepageCheck(BaseCheck):
 
         if response.is_success and "text/html" not in content_type:
             status = "degraded"
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,

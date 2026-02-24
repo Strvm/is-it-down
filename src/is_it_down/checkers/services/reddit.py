@@ -6,7 +6,12 @@ import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
-from is_it_down.checkers.utils import apply_statuspage_indicator, response_latency_ms, status_from_http
+from is_it_down.checkers.utils import (
+    add_non_up_debug_metadata,
+    apply_statuspage_indicator,
+    response_latency_ms,
+    status_from_http,
+)
 from is_it_down.core.models import CheckResult
 
 
@@ -27,6 +32,7 @@ class RedditStatusPageCheck(BaseCheck):
             indicator = payload.get("status", {}).get("indicator", "unknown")
             metadata["indicator"] = indicator
             status = apply_statuspage_indicator(status, indicator)
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -55,6 +61,7 @@ class RedditAllHotCheck(BaseCheck):
             metadata["post_count"] = len(children)
             if not isinstance(children, list):
                 status = "degraded"
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -83,6 +90,7 @@ class RedditSubredditAboutCheck(BaseCheck):
             metadata["display_name"] = subreddit
             if not isinstance(subreddit, str) or not subreddit:
                 status = "degraded"
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,

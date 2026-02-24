@@ -193,6 +193,7 @@ def render_comment_markdown(
     changed_files: list[str],
     selected_modules: list[str],
     results: list[CheckerExecutionResult],
+    verbose: bool = False,
     module_errors: Mapping[str, str] | None = None,
 ) -> str:
     lines: list[str] = [COMMENT_MARKER, "## Service Checker Preview"]
@@ -228,6 +229,8 @@ def render_comment_markdown(
         )
 
     lines.append("")
+    lines.append("Full JSON payload is uploaded as the workflow artifact `checker-preview-results`.")
+    lines.append("")
     for result in results:
         lines.append(
             f"<details><summary><strong>{result.service_key}</strong> "
@@ -260,6 +263,22 @@ def render_comment_markdown(
                 f"`{http_status}` | `{latency_text}` | {error_text} |"
             )
 
+        if verbose:
+            non_up_checks = [check for check in result.checks if check.get("status") in {"degraded", "down"}]
+            if non_up_checks:
+                lines.append("")
+                lines.append(
+                    f"<details><summary>Verbose non-up check logs ({len(non_up_checks)})</summary>"
+                )
+                lines.append("")
+                for check in non_up_checks:
+                    lines.append(f"Check: `{check.get('check_key', '-')}`")
+                    lines.append("```json")
+                    lines.append(json.dumps(check, indent=2, sort_keys=True))
+                    lines.append("```")
+                    lines.append("")
+                lines.append("</details>")
+
         lines.append("")
         lines.append("</details>")
         lines.append("")
@@ -281,6 +300,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--changed-files-json", required=True, help="JSON list of changed files")
     parser.add_argument("--output-markdown", required=True, help="Output markdown file path")
     parser.add_argument("--output-json", required=True, help="Output JSON file path")
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Include verbose non-up check payloads in the generated markdown comment.",
+    )
     return parser.parse_args()
 
 
@@ -315,6 +339,7 @@ def main() -> None:
         changed_files=changed_files,
         selected_modules=selected_modules,
         results=results,
+        verbose=args.verbose,
         module_errors=module_errors,
     )
 
@@ -324,6 +349,7 @@ def main() -> None:
         "changed_modules": changed_modules,
         "selected_modules": selected_modules,
         "module_errors": module_errors,
+        "verbose": args.verbose,
         "results": [asdict(result) for result in results],
     }
 
