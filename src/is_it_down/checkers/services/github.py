@@ -1,25 +1,12 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any
 
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.utils import apply_statuspage_indicator, response_latency_ms, status_from_http
 from is_it_down.core.models import CheckResult
-
-ServiceStatus = Literal["up", "degraded", "down"]
-
-
-def _latency_ms(response: httpx.Response) -> int:
-    return int(response.elapsed.total_seconds() * 1000)
-
-
-def _status_from_http(response: httpx.Response) -> ServiceStatus:
-    if response.status_code >= 500:
-        return "down"
-    if response.status_code >= 400:
-        return "degraded"
-    return "up"
 
 
 class GitHubApiRateLimitCheck(BaseCheck):
@@ -38,7 +25,7 @@ class GitHubApiRateLimitCheck(BaseCheck):
             },
         )
 
-        status = _status_from_http(response)
+        status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
         if response.is_success:
@@ -56,7 +43,7 @@ class GitHubApiRateLimitCheck(BaseCheck):
             check_key=self.check_key,
             status=status,
             observed_at=datetime.now(UTC),
-            latency_ms=_latency_ms(response),
+            latency_ms=response_latency_ms(response),
             http_status=response.status_code,
             metadata=metadata,
         )
@@ -71,7 +58,7 @@ class GitHubStatusPageCheck(BaseCheck):
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
-        status = _status_from_http(response)
+        status = status_from_http(response)
 
         metadata: dict[str, Any] = {}
         if response.is_success:
@@ -79,16 +66,13 @@ class GitHubStatusPageCheck(BaseCheck):
             indicator = payload.get("status", {}).get("indicator", "unknown")
             metadata["indicator"] = indicator
 
-            if indicator in {"minor", "major"}:
-                status = "degraded"
-            elif indicator in {"critical", "maintenance"}:
-                status = "down"
+            status = apply_statuspage_indicator(status, indicator)
 
         return CheckResult(
             check_key=self.check_key,
             status=status,
             observed_at=datetime.now(UTC),
-            latency_ms=_latency_ms(response),
+            latency_ms=response_latency_ms(response),
             http_status=response.status_code,
             metadata=metadata,
         )
@@ -103,7 +87,7 @@ class GitHubHomepageCheck(BaseCheck):
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
-        status = _status_from_http(response)
+        status = status_from_http(response)
 
         content_type = response.headers.get("content-type", "")
         metadata: dict[str, Any] = {"content_type": content_type}
@@ -115,7 +99,7 @@ class GitHubHomepageCheck(BaseCheck):
             check_key=self.check_key,
             status=status,
             observed_at=datetime.now(UTC),
-            latency_ms=_latency_ms(response),
+            latency_ms=response_latency_ms(response),
             http_status=response.status_code,
             metadata=metadata,
         )

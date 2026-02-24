@@ -1,13 +1,12 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any
 
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
-from is_it_down.core.models import CheckResult
-
-ServiceStatus = Literal["up", "degraded", "down"]
+from is_it_down.checkers.utils import response_latency_ms
+from is_it_down.core.models import CheckResult, ServiceStatus
 
 
 class _BungiePlatformCheck(BaseCheck):
@@ -105,7 +104,7 @@ class DestinyManifestCheck(_BungiePlatformCheck):
             check_key=self.check_key,
             status=status,
             observed_at=datetime.now(UTC),
-            latency_ms=int(response.elapsed.total_seconds() * 1000),
+            latency_ms=response_latency_ms(response),
             http_status=response.status_code,
             metadata=metadata,
         )
@@ -135,7 +134,7 @@ class DestinyGlobalAlertsCheck(_BungiePlatformCheck):
             check_key=self.check_key,
             status=status,
             observed_at=datetime.now(UTC),
-            latency_ms=int(response.elapsed.total_seconds() * 1000),
+            latency_ms=response_latency_ms(response),
             http_status=response.status_code,
             metadata=metadata,
         )
@@ -165,7 +164,7 @@ class DestinyClanBannerDictionaryCheck(_BungiePlatformCheck):
             check_key=self.check_key,
             status=status,
             observed_at=datetime.now(UTC),
-            latency_ms=int(response.elapsed.total_seconds() * 1000),
+            latency_ms=response_latency_ms(response),
             http_status=response.status_code,
             metadata=metadata,
         )
