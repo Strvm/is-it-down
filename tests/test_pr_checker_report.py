@@ -2,6 +2,7 @@ from is_it_down.scripts.pr_checker_report import (
     changed_service_checker_modules,
     render_comment_markdown,
     selected_service_checker_classes,
+    selected_service_checker_classes_with_errors,
 )
 
 
@@ -46,3 +47,11 @@ def test_render_comment_markdown_includes_summary_table() -> None:
 
     assert "| Service | Checker | Dependencies | Result |" in markdown
     assert "Changed service checker modules:" in markdown
+
+
+def test_selected_service_checker_classes_with_errors_for_unknown_module() -> None:
+    changed_files = ["src/is_it_down/checkers/services/does_not_exist.py"]
+    selected, module_errors = selected_service_checker_classes_with_errors(changed_files)
+
+    assert selected == []
+    assert "does_not_exist" in module_errors

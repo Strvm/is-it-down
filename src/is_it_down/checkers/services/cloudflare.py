@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.utils import apply_statuspage_indicator, response_latency_ms
 from is_it_down.core.models import CheckResult
 
 
@@ -12,7 +13,6 @@ class CloudflareStatusAPICheck(BaseCheck):
     endpoint_key = "https://www.cloudflarestatus.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 4.0
-    weight = 1.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
@@ -21,17 +21,13 @@ class CloudflareStatusAPICheck(BaseCheck):
         payload = response.json()
         indicator = payload.get("status", {}).get("indicator", "unknown")
 
-        status = "up"
-        if indicator in {"minor", "major"}:
-            status = "degraded"
-        elif indicator in {"critical", "maintenance", "none"}:
-            status = "down" if indicator in {"critical", "maintenance"} else "up"
+        status = apply_statuspage_indicator("up", indicator)
 
         return CheckResult(
             check_key=self.check_key,
             status=status,
             observed_at=datetime.now(UTC),
-            latency_ms=int(response.elapsed.total_seconds() * 1000),
+            latency_ms=response_latency_ms(response),
             http_status=response.status_code,
             metadata={"indicator": indicator},
         )

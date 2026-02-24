@@ -19,7 +19,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --no-install-project
 
       - name: Collect changed files in PR
         id: changed-files
@@ -45,8 +45,9 @@ jobs:
       - name: Run changed service checkers
         env:
           CHANGED_FILES_JSON: ${{ steps.changed-files.outputs.files_json }}
+          PYTHONPATH: ${{ github.workspace }}/src
         run: |
-          uv run python -m is_it_down.scripts.pr_checker_report \
+          uv run python src/is_it_down/scripts/pr_checker_report.py \
             --changed-files-json "$CHANGED_FILES_JSON" \
             --output-markdown /tmp/checker-preview-comment.md \
             --output-json /tmp/checker-preview-results.json
