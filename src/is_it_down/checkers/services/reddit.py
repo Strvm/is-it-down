@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
@@ -14,53 +15,12 @@ from is_it_down.checkers.utils import (
 from is_it_down.core.models import CheckResult
 
 
-class GitHubApiRateLimitCheck(BaseCheck):
-    check_key = "github_api_rate_limit"
-    endpoint_key = "https://api.github.com/rate_limit"
+class RedditStatusPageCheck(BaseCheck):
+    check_key = "reddit_status_page"
+    endpoint_key = "https://www.redditstatus.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.4
-
-    async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        response = await client.get(
-            self.endpoint_key,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-
-        status = status_from_http(response)
-        metadata: dict[str, Any] = {}
-
-        if response.is_success:
-            payload = response.json()
-            core_rate = payload.get("resources", {}).get("core", {})
-            remaining = core_rate.get("remaining")
-            limit = core_rate.get("limit")
-            metadata["core_remaining"] = remaining
-            metadata["core_limit"] = limit
-
-            if not isinstance(limit, int):
-                status = "degraded"
-        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
-
-        return CheckResult(
-            check_key=self.check_key,
-            status=status,
-            observed_at=datetime.now(UTC),
-            latency_ms=response_latency_ms(response),
-            http_status=response.status_code,
-            metadata=metadata,
-        )
-
-
-class GitHubStatusPageCheck(BaseCheck):
-    check_key = "github_status_page"
-    endpoint_key = "https://www.githubstatus.com/api/v2/status.json"
-    interval_seconds = 60
-    timeout_seconds = 5.0
-    weight = 0.35
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
@@ -71,7 +31,6 @@ class GitHubStatusPageCheck(BaseCheck):
             payload = response.json()
             indicator = payload.get("status", {}).get("indicator", "unknown")
             metadata["indicator"] = indicator
-
             status = apply_statuspage_indicator(status, indicator)
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
@@ -85,9 +44,9 @@ class GitHubStatusPageCheck(BaseCheck):
         )
 
 
-class GitHubHomepageCheck(BaseCheck):
-    check_key = "github_homepage"
-    endpoint_key = "https://github.com/"
+class RedditAllHotCheck(BaseCheck):
+    check_key = "reddit_all_hot"
+    endpoint_key = "https://www.reddit.com/r/all/hot.json?limit=1"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -95,11 +54,13 @@ class GitHubHomepageCheck(BaseCheck):
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
-        content_type = response.headers.get("content-type", "")
-        metadata: dict[str, Any] = {"content_type": content_type}
-
-        if response.is_success and "text/html" not in content_type:
-            status = "degraded"
+        metadata: dict[str, Any] = {}
+        if response.is_success:
+            payload = response.json()
+            children = payload.get("data", {}).get("children", [])
+            metadata["post_count"] = len(children)
+            if not isinstance(children, list):
+                status = "degraded"
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
@@ -112,14 +73,43 @@ class GitHubHomepageCheck(BaseCheck):
         )
 
 
-class GitHubServiceChecker(BaseServiceChecker):
-    service_key = "github"
-    official_uptime = "https://www.githubstatus.com/"
-    dependencies: Sequence[type[BaseServiceChecker]] = ()
+class RedditSubredditAboutCheck(BaseCheck):
+    check_key = "reddit_subreddit_about"
+    endpoint_key = "https://www.reddit.com/r/reddit/about.json"
+    interval_seconds = 60
+    timeout_seconds = 5.0
+
+    async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        response = await client.get(self.endpoint_key)
+        status = status_from_http(response)
+
+        metadata: dict[str, Any] = {}
+        if response.is_success:
+            payload = response.json()
+            subreddit = payload.get("data", {}).get("display_name")
+            metadata["display_name"] = subreddit
+            if not isinstance(subreddit, str) or not subreddit:
+                status = "degraded"
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
+
+        return CheckResult(
+            check_key=self.check_key,
+            status=status,
+            observed_at=datetime.now(UTC),
+            latency_ms=response_latency_ms(response),
+            http_status=response.status_code,
+            metadata=metadata,
+        )
+
+
+class RedditServiceChecker(BaseServiceChecker):
+    service_key = "reddit"
+    official_uptime = "https://www.redditstatus.com/"
+    dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         return [
-            GitHubApiRateLimitCheck(),
-            GitHubStatusPageCheck(),
-            GitHubHomepageCheck(),
+            RedditStatusPageCheck(),
+            RedditAllHotCheck(),
+            RedditSubredditAboutCheck(),
         ]

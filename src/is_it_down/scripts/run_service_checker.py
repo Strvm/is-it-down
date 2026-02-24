@@ -73,6 +73,19 @@ async def execute_service_checkers(
         ]
 
 
+def _check_result_payload(check_result: Any) -> dict[str, Any]:
+    return {
+        "check_key": check_result.check_key,
+        "status": check_result.status,
+        "observed_at": check_result.observed_at.isoformat(),
+        "latency_ms": check_result.latency_ms,
+        "http_status": check_result.http_status,
+        "error_code": check_result.error_code,
+        "error_message": check_result.error_message,
+        "metadata": check_result.metadata,
+    }
+
+
 def _serialize_run(
     service_checker_cls: type[BaseServiceChecker],
     run_result: ServiceRunResult,
@@ -80,25 +93,15 @@ def _serialize_run(
     return {
         "service_key": run_result.service_key,
         "checker_class": _service_checker_path(service_checker_cls),
-        "checks": [
-            {
-                "check_key": check_result.check_key,
-                "status": check_result.status,
-                "observed_at": check_result.observed_at.isoformat(),
-                "latency_ms": check_result.latency_ms,
-                "http_status": check_result.http_status,
-                "error_code": check_result.error_code,
-                "error_message": check_result.error_message,
-                "metadata": check_result.metadata,
-            }
-            for check_result in run_result.check_results
-        ],
+        "checks": [_check_result_payload(check_result) for check_result in run_result.check_results],
     }
 
 
 def _print_human(
     service_checker_cls: type[BaseServiceChecker],
     run_result: ServiceRunResult,
+    *,
+    verbose: bool,
 ) -> None:
     print(f"Service: {run_result.service_key} ({_service_checker_path(service_checker_cls)})")
     if not run_result.check_results:
@@ -131,6 +134,12 @@ def _print_human(
         if check_result.metadata:
             metadata = json.dumps(check_result.metadata, sort_keys=True)
             print(f"{'':40} {'':9} {'':9} {'':6} metadata={metadata}")
+
+        if verbose and check_result.status != "up":
+            payload = json.dumps(_check_result_payload(check_result), indent=2, sort_keys=True)
+            print(f"{'':40} {'':9} {'':9} {'':6} verbose:")
+            for line in payload.splitlines():
+                print(f"{'':40} {'':9} {'':9} {'':6} {line}")
 
     print("")
 
@@ -166,6 +175,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--strict",
         action="store_true",
         help="Exit with code 1 if any check result is not 'up'.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help=(
+            "Print detailed payload logs for non-up checks, including status code "
+            "and response debug metadata."
+        ),
     )
     return parser
 
@@ -210,7 +227,7 @@ def main() -> None:
         )
     else:
         for service_checker_cls, run_result in runs:
-            _print_human(service_checker_cls, run_result)
+            _print_human(service_checker_cls, run_result, verbose=args.verbose)
 
     if args.strict and any(_has_non_up_result(run_result) for _, run_result in runs):
         raise SystemExit(1)

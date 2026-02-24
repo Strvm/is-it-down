@@ -1,0 +1,7 @@
+interface:
+  display_name: "Create Service Checker"
+  short_description: "Add robust BaseServiceChecker modules"
+  default_prompt: "Use $create-base-service-checker to add or update a checker module in this is-it-down repository."
+
+policy:
+  allow_implicit_invocation: true

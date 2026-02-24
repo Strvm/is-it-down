@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -57,7 +59,27 @@ class BaseCheck(ABC):
 class BaseServiceChecker(ABC):
     service_key: str
     official_uptime: str | None = None
-    dependencies: Sequence[str] = ()
+    dependencies: Sequence[type["BaseServiceChecker"]] = ()
+
+    def dependency_service_keys(self) -> list[str]:
+        dependency_keys: list[str] = []
+        for dependency in self.dependencies:
+            if not isinstance(dependency, type) or not issubclass(dependency, BaseServiceChecker):
+                raise TypeError(
+                    f"{self.service_key} dependency {dependency!r} is not a BaseServiceChecker subclass."
+                )
+
+            dependency_key = getattr(dependency, "service_key", None)
+            if not isinstance(dependency_key, str) or not dependency_key:
+                raise ValueError(
+                    f"{self.service_key} dependency {dependency.__name__} has no valid service_key."
+                )
+
+            if dependency_key == self.service_key:
+                raise ValueError(f"{self.service_key} cannot depend on itself.")
+
+            dependency_keys.append(dependency_key)
+        return dependency_keys
 
     def resolve_check_weights(self, checks: Sequence[BaseCheck]) -> list[BaseCheck]:
         if not checks:
@@ -118,6 +140,7 @@ class BaseServiceChecker(ABC):
         """Return concrete endpoint checks for this service."""
 
     async def run_all(self, client: httpx.AsyncClient) -> ServiceRunResult:
+        self.dependency_service_keys()
         checks = self.resolve_check_weights(list(self.build_checks()))
         if not checks:
             return ServiceRunResult(service_key=self.service_key, check_results=[])

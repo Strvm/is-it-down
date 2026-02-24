@@ -5,7 +5,8 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
-from is_it_down.checkers.utils import response_latency_ms
+from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
+from is_it_down.checkers.utils import add_non_up_debug_metadata, response_latency_ms
 from is_it_down.core.models import CheckResult, ServiceStatus
 
 
@@ -99,6 +100,7 @@ class DestinyManifestCheck(_BungiePlatformCheck):
         if payload is not None and isinstance(payload.get("Response"), dict):
             response_keys = list(payload["Response"].keys())
             metadata["response_keys"] = response_keys[:8]
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -128,6 +130,7 @@ class DestinyGlobalAlertsCheck(_BungiePlatformCheck):
 
         if payload is not None and isinstance(payload.get("Response"), list):
             metadata["active_alert_count"] = len(payload["Response"])
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -157,6 +160,7 @@ class DestinyClanBannerDictionaryCheck(_BungiePlatformCheck):
 
         if payload is not None and isinstance(payload.get("Response"), dict):
             metadata["banner_option_count"] = len(payload["Response"])
+        add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
             check_key=self.check_key,
@@ -174,7 +178,7 @@ class DestinyServiceChecker(BaseServiceChecker):
         "https://help.bungie.net/hc/en-us/articles/360049199271-"
         "Destiny-Server-and-Update-Status"
     )
-    dependencies: Sequence[str] = ("cloudflare",)
+    dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         return [

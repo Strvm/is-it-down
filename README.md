@@ -42,6 +42,9 @@ uv run is-it-down-run-service-checker is_it_down.checkers.services.cloudflare.Cl
 
 # fail non-zero if any check is degraded/down
 uv run is-it-down-run-service-checker cloudflare --strict
+
+# print verbose payload logs for degraded/down checks
+uv run is-it-down-run-service-checker reddit --verbose
 ```
 
 Set environment variables:
