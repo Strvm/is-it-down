@@ -50,7 +50,8 @@ jobs:
           uv run python src/is_it_down/scripts/pr_checker_report.py \
             --changed-files-json "$CHANGED_FILES_JSON" \
             --output-markdown /tmp/checker-preview-comment.md \
-            --output-json /tmp/checker-preview-results.json
+            --output-json /tmp/checker-preview-results.json \
+            --verbose
 
       - name: Upload checker preview artifact
         uses: actions/upload-artifact@v4

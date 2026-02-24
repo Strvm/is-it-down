@@ -1,4 +1,5 @@
 from is_it_down.scripts.pr_checker_report import (
+    CheckerExecutionResult,
     changed_service_checker_modules,
     render_comment_markdown,
     selected_service_checker_classes,
@@ -55,3 +56,38 @@ def test_selected_service_checker_classes_with_errors_for_unknown_module() -> No
 
     assert selected == []
     assert "does_not_exist" in module_errors
+
+
+def test_render_comment_markdown_includes_verbose_non_up_logs_when_enabled() -> None:
+    results = [
+        CheckerExecutionResult(
+            service_key="reddit",
+            checker_class="is_it_down.checkers.services.reddit.RedditServiceChecker",
+            official_uptime="https://www.redditstatus.com/",
+            dependencies=["cloudflare"],
+            changed_module="reddit",
+            checks=[
+                {
+                    "check_key": "reddit_all_hot",
+                    "status": "degraded",
+                    "http_status": 403,
+                    "latency_ms": 120,
+                    "error_code": None,
+                    "error_message": None,
+                    "metadata": {"debug": {"body_preview": "blocked", "status_code": 403}},
+                }
+            ],
+            error=None,
+        )
+    ]
+
+    markdown = render_comment_markdown(
+        changed_files=["src/is_it_down/checkers/services/reddit.py"],
+        selected_modules=["reddit"],
+        results=results,
+        verbose=True,
+    )
+
+    assert "Verbose non-up check logs (1)" in markdown
+    assert '"status": "degraded"' in markdown
+    assert '"http_status": 403' in markdown
