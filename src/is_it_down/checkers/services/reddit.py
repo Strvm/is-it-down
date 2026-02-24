@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -8,72 +9,22 @@ from is_it_down.checkers.utils import apply_statuspage_indicator, response_laten
 from is_it_down.core.models import CheckResult
 
 
-class DiscordGatewayCheck(BaseCheck):
-    check_key = "discord_gateway"
-    endpoint_key = "https://discord.com/api/v9/gateway"
+class RedditStatusPageCheck(BaseCheck):
+    check_key = "reddit_status_page"
+    endpoint_key = "https://www.redditstatus.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
-    weight = 0.5
+    weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
-        gateway_url: str | None = None
-        if response.is_success:
-            payload = response.json()
-            gateway_url = payload.get("url")
-            if not gateway_url:
-                status = "degraded"
-
-        return CheckResult(
-            check_key=self.check_key,
-            status=status,
-            observed_at=datetime.now(UTC),
-            latency_ms=response_latency_ms(response),
-            http_status=response.status_code,
-            metadata={"gateway_url_present": bool(gateway_url)},
-        )
-
-
-class DiscordCDNAvatarCheck(BaseCheck):
-    check_key = "discord_cdn_avatar"
-    endpoint_key = "https://cdn.discordapp.com/embed/avatars/0.png"
-    interval_seconds = 60
-    timeout_seconds = 5.0
-
-    async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        response = await client.get(self.endpoint_key)
-        status = status_from_http(response)
-
-        content_type = response.headers.get("content-type", "")
-        if response.is_success and not content_type.startswith("image/"):
-            status = "degraded"
-
-        return CheckResult(
-            check_key=self.check_key,
-            status=status,
-            observed_at=datetime.now(UTC),
-            latency_ms=response_latency_ms(response),
-            http_status=response.status_code,
-            metadata={"content_type": content_type},
-        )
-
-
-class DiscordStatusPageCheck(BaseCheck):
-    check_key = "discord_status_page"
-    endpoint_key = "https://discordstatus.com/api/v2/status.json"
-    interval_seconds = 60
-    timeout_seconds = 5.0
-
-    async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        response = await client.get(self.endpoint_key)
-        status = status_from_http(response)
-
-        indicator = "unknown"
+        metadata: dict[str, Any] = {}
         if response.is_success:
             payload = response.json()
             indicator = payload.get("status", {}).get("indicator", "unknown")
+            metadata["indicator"] = indicator
             status = apply_statuspage_indicator(status, indicator)
 
         return CheckResult(
@@ -82,14 +33,74 @@ class DiscordStatusPageCheck(BaseCheck):
             observed_at=datetime.now(UTC),
             latency_ms=response_latency_ms(response),
             http_status=response.status_code,
-            metadata={"indicator": indicator},
+            metadata=metadata,
         )
 
 
-class DiscordServiceChecker(BaseServiceChecker):
-    service_key = "discord"
-    official_uptime = "https://discordstatus.com/"
+class RedditAllHotCheck(BaseCheck):
+    check_key = "reddit_all_hot"
+    endpoint_key = "https://www.reddit.com/r/all/hot.json?limit=1"
+    interval_seconds = 60
+    timeout_seconds = 5.0
+
+    async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        response = await client.get(self.endpoint_key)
+        status = status_from_http(response)
+
+        metadata: dict[str, Any] = {}
+        if response.is_success:
+            payload = response.json()
+            children = payload.get("data", {}).get("children", [])
+            metadata["post_count"] = len(children)
+            if not isinstance(children, list):
+                status = "degraded"
+
+        return CheckResult(
+            check_key=self.check_key,
+            status=status,
+            observed_at=datetime.now(UTC),
+            latency_ms=response_latency_ms(response),
+            http_status=response.status_code,
+            metadata=metadata,
+        )
+
+
+class RedditSubredditAboutCheck(BaseCheck):
+    check_key = "reddit_subreddit_about"
+    endpoint_key = "https://www.reddit.com/r/reddit/about.json"
+    interval_seconds = 60
+    timeout_seconds = 5.0
+
+    async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        response = await client.get(self.endpoint_key)
+        status = status_from_http(response)
+
+        metadata: dict[str, Any] = {}
+        if response.is_success:
+            payload = response.json()
+            subreddit = payload.get("data", {}).get("display_name")
+            metadata["display_name"] = subreddit
+            if not isinstance(subreddit, str) or not subreddit:
+                status = "degraded"
+
+        return CheckResult(
+            check_key=self.check_key,
+            status=status,
+            observed_at=datetime.now(UTC),
+            latency_ms=response_latency_ms(response),
+            http_status=response.status_code,
+            metadata=metadata,
+        )
+
+
+class RedditServiceChecker(BaseServiceChecker):
+    service_key = "reddit"
+    official_uptime = "https://www.redditstatus.com/"
     dependencies: Sequence[str] = ("cloudflare",)
 
     def build_checks(self) -> Sequence[BaseCheck]:
-        return [DiscordGatewayCheck(), DiscordCDNAvatarCheck(), DiscordStatusPageCheck()]
+        return [
+            RedditStatusPageCheck(),
+            RedditAllHotCheck(),
+            RedditSubredditAboutCheck(),
+        ]
