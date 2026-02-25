@@ -71,6 +71,8 @@ Set environment variables:
 - `IS_IT_DOWN_BIGQUERY_PROJECT_ID`: GCP project for BigQuery writes (optional if ADC project is set).
 - `IS_IT_DOWN_BIGQUERY_DATASET_ID`: defaults to `is_it_down`.
 - `IS_IT_DOWN_BIGQUERY_TABLE_ID`: defaults to `check_results`.
+- `IS_IT_DOWN_TRACKING_BIGQUERY_DATASET_ID`: defaults to `is_it_down_tracking`.
+- `IS_IT_DOWN_TRACKING_BIGQUERY_TABLE_ID`: defaults to `service_detail_views`.
 
 ## Project Layout
 

@@ -148,13 +148,27 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
     return uptimes.filter((service) => visibleSlugs.has(service.slug));
   }, [filteredServices, normalizedSearch, uptimes]);
 
+  const serviceRankBySlug = useMemo(
+    () => new Map(filteredServices.map((service, index) => [service.slug, index])),
+    [filteredServices],
+  );
+
   const filteredCheckerTrends = useMemo(() => {
-    if (!normalizedSearch) {
-      return checkerTrends;
-    }
-    const visibleSlugs = new Set(filteredServices.map((service) => service.slug));
-    return checkerTrends.filter((service) => visibleSlugs.has(service.slug));
-  }, [checkerTrends, filteredServices, normalizedSearch]);
+    const visibleSlugs = normalizedSearch
+      ? new Set(filteredServices.map((service) => service.slug))
+      : null;
+
+    return checkerTrends
+      .filter((service) => (visibleSlugs ? visibleSlugs.has(service.slug) : true))
+      .sort((left, right) => {
+        const leftRank = serviceRankBySlug.get(left.slug) ?? Number.MAX_SAFE_INTEGER;
+        const rightRank = serviceRankBySlug.get(right.slug) ?? Number.MAX_SAFE_INTEGER;
+        if (leftRank !== rightRank) {
+          return leftRank - rightRank;
+        }
+        return left.slug.localeCompare(right.slug);
+      });
+  }, [checkerTrends, filteredServices, normalizedSearch, serviceRankBySlug]);
 
   const serviceBySlug = useMemo(
     () => new Map(filteredServices.map((service) => [service.slug, service])),

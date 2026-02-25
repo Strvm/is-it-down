@@ -40,6 +40,12 @@ resource "google_project_iam_member" "api_bigquery_data_viewer" {
   member  = "serviceAccount:${google_service_account.api_runtime.email}"
 }
 
+resource "google_project_iam_member" "api_bigquery_data_editor" {
+  project = var.project[terraform.workspace]
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${google_service_account.api_runtime.email}"
+}
+
 resource "google_project_iam_member" "api_bigquery_job_user" {
   project = var.project[terraform.workspace]
   role    = "roles/bigquery.jobUser"
@@ -124,18 +130,22 @@ module "cloud_run_api_service" {
   container_port        = 8080
   allow_public_invoker  = true
   env_vars = {
-    IS_IT_DOWN_ENV                 = var.app_env[terraform.workspace]
-    IS_IT_DOWN_LOG_LEVEL           = var.log_level
-    IS_IT_DOWN_BIGQUERY_PROJECT_ID = var.project[terraform.workspace]
-    IS_IT_DOWN_BIGQUERY_DATASET_ID = var.bigquery_dataset_id
-    IS_IT_DOWN_BIGQUERY_TABLE_ID   = var.bigquery_table_id
+    IS_IT_DOWN_ENV                          = var.app_env[terraform.workspace]
+    IS_IT_DOWN_LOG_LEVEL                    = var.log_level
+    IS_IT_DOWN_BIGQUERY_PROJECT_ID          = var.project[terraform.workspace]
+    IS_IT_DOWN_BIGQUERY_DATASET_ID          = var.bigquery_dataset_id
+    IS_IT_DOWN_BIGQUERY_TABLE_ID            = var.bigquery_table_id
+    IS_IT_DOWN_TRACKING_BIGQUERY_DATASET_ID = var.tracking_bigquery_dataset_id
+    IS_IT_DOWN_TRACKING_BIGQUERY_TABLE_ID   = var.tracking_bigquery_table_id
   }
 
   depends_on = [
     google_project_service.required,
     google_artifact_registry_repository.checker_images,
     google_bigquery_table.check_results,
+    google_bigquery_table.service_detail_views,
     google_project_iam_member.api_bigquery_data_viewer,
+    google_project_iam_member.api_bigquery_data_editor,
     google_project_iam_member.api_bigquery_job_user,
   ]
 }

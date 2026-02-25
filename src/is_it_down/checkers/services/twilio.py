@@ -141,7 +141,7 @@ class TwilioDocsCheck(BaseCheck):
 
 class TwilioServiceChecker(BaseServiceChecker):
     service_key = "twilio"
-    logo_url = "https://cdn.simpleicons.org/twilio"
+    logo_url = "https://img.logo.dev/twilio.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.twilio.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

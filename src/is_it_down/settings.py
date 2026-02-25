@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     bigquery_project_id: str | None = None
     bigquery_dataset_id: str = "is_it_down"
     bigquery_table_id: str = "check_results"
+    tracking_bigquery_dataset_id: str = "is_it_down_tracking"
+    tracking_bigquery_table_id: str = "service_detail_views"
     log_level: str = "INFO"
 
     scheduler_tick_seconds: float = 5.0

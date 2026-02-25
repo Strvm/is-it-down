@@ -65,6 +65,16 @@ variable "bigquery_table_id" {
   default = "check_results"
 }
 
+variable "tracking_bigquery_dataset_id" {
+  type    = string
+  default = "is_it_down_tracking"
+}
+
+variable "tracking_bigquery_table_id" {
+  type    = string
+  default = "service_detail_views"
+}
+
 variable "bigquery_location" {
   type    = string
   default = "US"
