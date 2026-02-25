@@ -4,6 +4,18 @@ resource "google_service_account" "checker_runtime" {
   display_name = "is-it-down checker runtime"
 }
 
+resource "google_service_account" "api_runtime" {
+  project      = var.project[terraform.workspace]
+  account_id   = "is-it-down-api"
+  display_name = "is-it-down api runtime"
+}
+
+resource "google_service_account" "web_runtime" {
+  project      = var.project[terraform.workspace]
+  account_id   = "is-it-down-web"
+  display_name = "is-it-down web runtime"
+}
+
 resource "google_service_account" "job_trigger" {
   project      = var.project[terraform.workspace]
   account_id   = "is-it-down-job-trigger"
@@ -20,6 +32,18 @@ resource "google_project_iam_member" "checker_bigquery_job_user" {
   project = var.project[terraform.workspace]
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.checker_runtime.email}"
+}
+
+resource "google_project_iam_member" "api_bigquery_data_viewer" {
+  project = var.project[terraform.workspace]
+  role    = "roles/bigquery.dataViewer"
+  member  = "serviceAccount:${google_service_account.api_runtime.email}"
+}
+
+resource "google_project_iam_member" "api_bigquery_job_user" {
+  project = var.project[terraform.workspace]
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.api_runtime.email}"
 }
 
 resource "google_project_iam_member" "trigger_run_invoker" {
@@ -85,6 +109,57 @@ resource "google_cloud_run_v2_job" "checker" {
     google_bigquery_table.check_results,
     google_project_iam_member.checker_bigquery_data_editor,
     google_project_iam_member.checker_bigquery_job_user,
+  ]
+}
+
+module "cloud_run_api_service" {
+  source = "./modules/cloud_run_service"
+
+  project               = var.project[terraform.workspace]
+  region                = var.region
+  name                  = var.api_service_name
+  image                 = "${var.region}-docker.pkg.dev/${var.project[terraform.workspace]}/${var.artifact_registry_repository}/${var.artifact_registry_api_image}:${var.image_tag}"
+  service_account_email = google_service_account.api_runtime.email
+  min_instance_count    = 0
+  container_port        = 8080
+  allow_public_invoker  = true
+  env_vars = {
+    IS_IT_DOWN_ENV                 = var.app_env[terraform.workspace]
+    IS_IT_DOWN_LOG_LEVEL           = var.log_level
+    IS_IT_DOWN_BIGQUERY_PROJECT_ID = var.project[terraform.workspace]
+    IS_IT_DOWN_BIGQUERY_DATASET_ID = var.bigquery_dataset_id
+    IS_IT_DOWN_BIGQUERY_TABLE_ID   = var.bigquery_table_id
+  }
+
+  depends_on = [
+    google_project_service.required,
+    google_artifact_registry_repository.checker_images,
+    google_bigquery_table.check_results,
+    google_project_iam_member.api_bigquery_data_viewer,
+    google_project_iam_member.api_bigquery_job_user,
+  ]
+}
+
+module "cloud_run_web_service" {
+  source = "./modules/cloud_run_service"
+
+  project               = var.project[terraform.workspace]
+  region                = var.region
+  name                  = var.web_service_name
+  image                 = "${var.region}-docker.pkg.dev/${var.project[terraform.workspace]}/${var.artifact_registry_repository}/${var.artifact_registry_web_image}:${var.image_tag}"
+  service_account_email = google_service_account.web_runtime.email
+  min_instance_count    = 0
+  container_port        = 8080
+  allow_public_invoker  = true
+  env_vars = {
+    API_BASE_URL             = module.cloud_run_api_service.uri
+    NEXT_PUBLIC_API_BASE_URL = module.cloud_run_api_service.uri
+  }
+
+  depends_on = [
+    google_project_service.required,
+    google_artifact_registry_repository.checker_images,
+    module.cloud_run_api_service,
   ]
 }
 

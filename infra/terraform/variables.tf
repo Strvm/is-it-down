@@ -35,6 +35,26 @@ variable "artifact_registry_image" {
   default = "is-it-down-checker"
 }
 
+variable "artifact_registry_api_image" {
+  type    = string
+  default = "is-it-down-api"
+}
+
+variable "artifact_registry_web_image" {
+  type    = string
+  default = "is-it-down-web"
+}
+
+variable "api_service_name" {
+  type    = string
+  default = "is-it-down-api"
+}
+
+variable "web_service_name" {
+  type    = string
+  default = "is-it-down-web"
+}
+
 variable "bigquery_dataset_id" {
   type    = string
   default = "is_it_down"

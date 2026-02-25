@@ -1,0 +1,30 @@
+FROM oven/bun:1.2.16 AS deps
+
+WORKDIR /app
+
+COPY web/package.json web/bun.lock ./
+RUN bun install --frozen-lockfile
+
+FROM oven/bun:1.2.16 AS builder
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY web/ ./
+
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN bun run build
+
+FROM oven/bun:1.2.16 AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=8080
+
+COPY --from=builder /app ./
+
+EXPOSE 8080
+
+CMD ["bun", "run", "start", "--", "-p", "8080", "-H", "0.0.0.0"]

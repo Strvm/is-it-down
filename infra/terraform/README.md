@@ -26,12 +26,15 @@ File layout:
 - `checks.tf`: workspace guardrails
 - `project_services.tf`: required GCP APIs
 - `bigquery.tf`: BigQuery dataset/table for checker results
-- `cloud_run.tf`: Cloud Run Job, Cloud Scheduler trigger, and IAM/service accounts
+- `cloud_run.tf`: Cloud Run Job + Cloud Run Services + Cloud Scheduler trigger + IAM/service accounts
+- `modules/cloud_run_service`: reusable module for Cloud Run Service resources (API/web)
 
 ## What gets created
 
 - BigQuery dataset + partitioned table for check results
 - Cloud Run Job to execute `is-it-down-run-scheduled-checks`
+- Cloud Run Service for FastAPI backend (`is-it-down-api`)
+- Cloud Run Service for Next.js frontend (`is-it-down-web`)
 - Cloud Scheduler cron trigger that calls `jobs:run`
 - Service accounts and IAM for runtime/trigger
 

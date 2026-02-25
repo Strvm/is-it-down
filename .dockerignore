@@ -1,0 +1,15 @@
+.git
+.github
+.idea
+.venv
+.pytest_cache
+.ruff_cache
+infra/terraform/.terraform
+infra/terraform/.terraform.lock.hcl
+**/__pycache__
+**/.DS_Store
+web/node_modules
+web/.next
+web/tsconfig.tsbuildinfo
+web/.env.local
+web/.env.*
