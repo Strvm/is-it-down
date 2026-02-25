@@ -11,7 +11,8 @@
 ## Runtime
 
 - `checker-job`: runs service checkers on a schedule and writes rows to BigQuery.
-- `web`: Next.js 16 dashboard UI in `web/` consuming the FastAPI routes.
+- `api`: FastAPI service serving status data from BigQuery.
+- `web`: Next.js 16 dashboard UI in `web/` consuming the FastAPI service.
 
 ## Local Development
 
@@ -87,3 +88,5 @@ Set environment variables:
 
 - Any push to `main` (including direct pushes and merged PRs) deploys to `dev` (`is-it-down-dev`).
 - Publishing a GitHub Release deploys to `prod` (`is-it-down-prod`).
+- CI builds and pushes three images (`checker`, `api`, `web`) tagged with the commit SHA.
+- Terraform applies the same tag to Cloud Run Job + Cloud Run Services.

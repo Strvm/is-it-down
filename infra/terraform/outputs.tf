@@ -10,6 +10,22 @@ output "cloud_run_job_name" {
   value = google_cloud_run_v2_job.checker.name
 }
 
+output "cloud_run_api_service_name" {
+  value = module.cloud_run_api_service.name
+}
+
+output "cloud_run_web_service_name" {
+  value = module.cloud_run_web_service.name
+}
+
+output "cloud_run_api_url" {
+  value = module.cloud_run_api_service.uri
+}
+
+output "cloud_run_web_url" {
+  value = module.cloud_run_web_service.uri
+}
+
 output "cloud_scheduler_job_name" {
   value = google_cloud_scheduler_job.run_checker.name
 }
@@ -24,6 +40,14 @@ output "bigquery_table_id" {
 
 output "checker_runtime_service_account" {
   value = google_service_account.checker_runtime.email
+}
+
+output "api_runtime_service_account" {
+  value = google_service_account.api_runtime.email
+}
+
+output "web_runtime_service_account" {
+  value = google_service_account.web_runtime.email
 }
 
 output "artifact_registry_repository" {
