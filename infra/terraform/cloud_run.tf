@@ -1,0 +1,118 @@
+resource "google_service_account" "checker_runtime" {
+  project      = var.project[terraform.workspace]
+  account_id   = "is-it-down-checker"
+  display_name = "is-it-down checker runtime"
+}
+
+resource "google_service_account" "job_trigger" {
+  project      = var.project[terraform.workspace]
+  account_id   = "is-it-down-job-trigger"
+  display_name = "is-it-down job trigger"
+}
+
+resource "google_project_iam_member" "checker_bigquery_data_editor" {
+  project = var.project[terraform.workspace]
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${google_service_account.checker_runtime.email}"
+}
+
+resource "google_project_iam_member" "checker_bigquery_job_user" {
+  project = var.project[terraform.workspace]
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.checker_runtime.email}"
+}
+
+resource "google_project_iam_member" "trigger_run_invoker" {
+  project = var.project[terraform.workspace]
+  role    = "roles/run.invoker"
+  member  = "serviceAccount:${google_service_account.job_trigger.email}"
+}
+
+resource "google_cloud_run_v2_job" "checker" {
+  name     = "is-it-down-checker-job"
+  project  = var.project[terraform.workspace]
+  location = var.region
+
+  template {
+    task_count  = 1
+    parallelism = 1
+
+    template {
+      service_account = google_service_account.checker_runtime.email
+      timeout         = "${var.job_timeout_seconds}s"
+      max_retries     = var.job_max_retries
+
+      containers {
+        image   = "${var.region}-docker.pkg.dev/${var.project[terraform.workspace]}/${var.artifact_registry_repository}/${var.artifact_registry_image}:${var.image_tag}"
+        command = ["is-it-down-run-scheduled-checks"]
+
+        env {
+          name  = "IS_IT_DOWN_ENV"
+          value = var.app_env[terraform.workspace]
+        }
+
+        env {
+          name  = "IS_IT_DOWN_LOG_LEVEL"
+          value = var.log_level
+        }
+
+        env {
+          name  = "IS_IT_DOWN_CHECKER_CONCURRENCY"
+          value = tostring(var.checker_concurrency)
+        }
+
+        env {
+          name  = "IS_IT_DOWN_BIGQUERY_PROJECT_ID"
+          value = var.project[terraform.workspace]
+        }
+
+        env {
+          name  = "IS_IT_DOWN_BIGQUERY_DATASET_ID"
+          value = var.bigquery_dataset_id
+        }
+
+        env {
+          name  = "IS_IT_DOWN_BIGQUERY_TABLE_ID"
+          value = var.bigquery_table_id
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    google_project_service.required,
+    google_bigquery_table.check_results,
+    google_project_iam_member.checker_bigquery_data_editor,
+    google_project_iam_member.checker_bigquery_job_user,
+  ]
+}
+
+resource "google_cloud_scheduler_job" "run_checker" {
+  name      = "is-it-down-checker-trigger"
+  project   = var.project[terraform.workspace]
+  region    = var.region
+  schedule  = var.checker_schedule
+  time_zone = var.checker_schedule_time_zone
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://run.googleapis.com/v2/projects/${var.project[terraform.workspace]}/locations/${var.region}/jobs/${google_cloud_run_v2_job.checker.name}:run"
+
+    oauth_token {
+      service_account_email = google_service_account.job_trigger.email
+      scope                 = "https://www.googleapis.com/auth/cloud-platform"
+    }
+  }
+
+  retry_config {
+    retry_count          = var.schedule_retry_count
+    min_backoff_duration = "10s"
+    max_backoff_duration = "300s"
+    max_doublings        = 3
+  }
+
+  depends_on = [
+    google_cloud_run_v2_job.checker,
+    google_project_iam_member.trigger_run_invoker,
+  ]
+}

@@ -5,30 +5,22 @@
 ## Goals
 
 - Run async endpoint checks for many services at high cadence.
-- Compute weighted service health scores from multiple endpoint probes.
-- Model service dependencies and attribute probable root causes.
-- Expose current status + history through FastAPI REST and SSE.
+- Persist raw check outcomes for analysis.
+- Keep deployment simple with Cloud Run Jobs + BigQuery.
 
-## Core Services
+## Runtime
 
-- `api`: FastAPI status API and SSE stream.
-- `scheduler`: Enqueues due checks.
-- `worker`: Executes checks asynchronously and writes results.
+- `checker-job`: runs service checkers on a schedule and writes rows to BigQuery.
 
 ## Local Development
 
 ```bash
 uv sync --extra dev
-uv run alembic upgrade head
-uv run is-it-down-seed-demo
-uv run is-it-down-api
-uv run is-it-down-scheduler
-uv run is-it-down-worker
+uv run is-it-down-run-service-checker --list
+uv run is-it-down-run-scheduled-checks --dry-run
 ```
 
-## Run Service Checkers Without DB Writes
-
-Use the local runner to execute service checkers directly in terminal (for testing/debugging only):
+## Run Service Checkers Without BigQuery Writes
 
 ```bash
 # list available service checker keys
@@ -39,25 +31,44 @@ uv run is-it-down-run-service-checker cloudflare
 
 # run by class path and return JSON
 uv run is-it-down-run-service-checker is_it_down.checkers.services.cloudflare.CloudflareServiceChecker --json
+```
 
-# fail non-zero if any check is degraded/down
-uv run is-it-down-run-service-checker cloudflare --strict
+## Run Scheduled Checks (BigQuery Sink)
 
-# print verbose payload logs for degraded/down checks
-uv run is-it-down-run-service-checker reddit --verbose
+```bash
+uv run is-it-down-run-scheduled-checks
+```
+
+Optional:
+
+```bash
+# run only selected checkers and fail non-zero if any check is non-up
+uv run is-it-down-run-scheduled-checks cloudflare github --strict
+
+# execute checks but skip BigQuery insert
+uv run is-it-down-run-scheduled-checks --dry-run
 ```
 
 Set environment variables:
 
-- `IS_IT_DOWN_DATABASE_URL`: PostgreSQL DSN.
-- `IS_IT_DOWN_ENV`: `local`, `staging`, or `production`.
+- `IS_IT_DOWN_ENV`: `local`, `development`, or `production`.
+- `IS_IT_DOWN_BIGQUERY_PROJECT_ID`: GCP project for BigQuery writes (optional if ADC project is set).
+- `IS_IT_DOWN_BIGQUERY_DATASET_ID`: defaults to `is_it_down`.
+- `IS_IT_DOWN_BIGQUERY_TABLE_ID`: defaults to `check_results`.
 
 ## Project Layout
 
-- `src/is_it_down/api`: FastAPI application.
-- `src/is_it_down/checkers`: OOP async checker framework + service checks.
-- `src/is_it_down/scheduler`: due check scheduler.
-- `src/is_it_down/worker`: async check executor.
-- `src/is_it_down/db`: SQLAlchemy models and session management.
-- `infra/terraform`: Cloud Run + Cloud SQL baseline infra.
-- `.github/workflows`: CI and deploy workflows.
+- `src/is_it_down/checkers`: async checker framework + service checks.
+- `src/is_it_down/scripts/run_service_checker.py`: ad-hoc checker runner.
+- `src/is_it_down/scripts/run_scheduled_checks.py`: Cloud Run Job entrypoint writing to BigQuery.
+- `infra/terraform`: Cloud Run Job, Cloud Scheduler trigger, BigQuery dataset/table.
+- `.github/workflows/deploy.yml`: image build + Terraform deploy.
+
+## GitHub Secrets
+
+- `GCP_SA_KEY` (create this secret in each GitHub Environment: `dev` and `prod`)
+
+## Deployment Workflow
+
+- Merging a PR into `main` deploys to `dev` (`is-it-down-dev`).
+- Publishing a GitHub Release deploys to `prod` (`is-it-down-prod`).
