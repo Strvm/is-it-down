@@ -38,5 +38,39 @@ jobs:
 
       - name: Build and push image
         run: |
+          set -euo pipefail
           IMAGE="${{ inputs.region }}-docker.pkg.dev/${{ inputs.project_id }}/is-it-down/is-it-down-checker:${{ inputs.image_tag }}"
-          gcloud builds submit --project "${{ inputs.project_id }}" --tag "$IMAGE"
+          BUILD_ID="$(gcloud builds submit \
+            --project "${{ inputs.project_id }}" \
+            --tag "$IMAGE" \
+            --async \
+            --format='value(metadata.build.id)')"
+
+          echo "Submitted Cloud Build: ${BUILD_ID}"
+
+          while true; do
+            STATUS="$(gcloud builds describe "${BUILD_ID}" \
+              --project "${{ inputs.project_id }}" \
+              --format='value(status)')"
+
+            case "${STATUS}" in
+              SUCCESS)
+                echo "Cloud Build succeeded: ${BUILD_ID}"
+                gcloud builds describe "${BUILD_ID}" \
+                  --project "${{ inputs.project_id }}" \
+                  --format='value(logUrl)'
+                break
+                ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                echo "Cloud Build failed with status: ${STATUS}"
+                gcloud builds describe "${BUILD_ID}" \
+                  --project "${{ inputs.project_id }}" \
+                  --format='yaml(id,status,logUrl,createTime,finishTime,images)'
+                exit 1
+                ;;
+              *)
+                echo "Cloud Build status: ${STATUS}. Waiting..."
+                sleep 5
+                ;;
+            esac
+          done
