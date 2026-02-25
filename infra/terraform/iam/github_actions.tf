@@ -4,9 +4,11 @@ resource "google_service_account" "github_actions_service_account" {
   display_name = "Github Actions Service Account"
 }
 
-locals {
-  github_actions_project_roles = toset([
+resource "google_project_iam_member" "github_actions_permissions" {
+  for_each = toset([
+    "roles/artifactregistry.admin",
     "roles/artifactregistry.writer",
+    "roles/cloudbuild.builds.editor",
     "roles/cloudscheduler.admin",
     "roles/run.admin",
     "roles/bigquery.admin",
@@ -14,11 +16,8 @@ locals {
     "roles/resourcemanager.projectIamAdmin",
     "roles/compute.admin",
     "roles/vpcaccess.admin",
+    "roles/serviceusage.serviceUsageAdmin",
   ])
-}
-
-resource "google_project_iam_member" "github_actions_permissions" {
-  for_each = local.github_actions_project_roles
 
   project = var.project
   role    = each.value

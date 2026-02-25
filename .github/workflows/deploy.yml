@@ -37,6 +37,9 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Terraform Init
+        run: terraform init -backend-config=configs/config.${{ inputs.environment }}.tfbackend
+
       - name: Enable build APIs
         run: |
           gcloud services enable \
@@ -61,16 +64,6 @@ jobs:
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/is-it-down/is-it-down-checker:${GITHUB_SHA}"
           gcloud builds submit --project "$PROJECT_ID" --tag "$IMAGE"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-
-      - name: Terraform init
-        run: |
-          terraform -chdir="$TERRAFORM_DIR" init -input=false \
-            -backend-config="configs/config.${WORKSPACE}.tfbackend"
-
-      - name: Terraform workspace select or create
-        run: |
-          terraform -chdir="$TERRAFORM_DIR" workspace select "$WORKSPACE" || \
-          terraform -chdir="$TERRAFORM_DIR" workspace new "$WORKSPACE"
 
       - name: Terraform apply
         env:
