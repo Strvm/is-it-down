@@ -1,79 +1,31 @@
+"""Provide functionality for `is_it_down.scripts.run_service_checker`."""
+
 import argparse
 import asyncio
 import json
 import os
-from collections.abc import Sequence
 from typing import Any
-
-import httpx
 
 from is_it_down.checkers.base import BaseServiceChecker, ServiceRunResult
 from is_it_down.checkers.proxy import clear_proxy_resolution_cache
-from is_it_down.checkers.registry import registry
+from is_it_down.scripts.checker_runtime import (
+    discover_service_checkers,
+    execute_service_checkers,
+    resolve_service_checker_targets,
+    service_checker_path,
+)
 from is_it_down.settings import get_settings
 
 
-def _service_checker_path(service_checker_cls: type[BaseServiceChecker]) -> str:
-    return f"{service_checker_cls.__module__}.{service_checker_cls.__name__}"
-
-
-def discover_service_checkers() -> dict[str, type[BaseServiceChecker]]:
-    discovered: dict[str, type[BaseServiceChecker]] = {}
-    for loaded in registry.discover_service_checkers():
-        service_key = getattr(loaded, "service_key", None)
-        if not isinstance(service_key, str):
-            continue
-        if not service_key:
-            continue
-        discovered[service_key] = loaded
-    return discovered
-
-
-def resolve_service_checker_targets(targets: Sequence[str]) -> list[type[BaseServiceChecker]]:
-    if not targets:
-        raise ValueError("At least one service checker target must be provided.")
-
-    discovered = discover_service_checkers()
-    resolved: list[type[BaseServiceChecker]] = []
-    seen_paths: set[str] = set()
-
-    for target in targets:
-        if "." in target:
-            loaded = registry.get_service_checker(target)
-        else:
-            loaded = discovered.get(target)
-            if loaded is None:
-                available = ", ".join(sorted(discovered)) or "none"
-                raise ValueError(f"Unknown service checker key '{target}'. Available keys: {available}.")
-
-        loaded_path = _service_checker_path(loaded)
-        if loaded_path in seen_paths:
-            continue
-
-        resolved.append(loaded)
-        seen_paths.add(loaded_path)
-
-    return resolved
-
-
-async def execute_service_checkers(
-    service_checker_classes: Sequence[type[BaseServiceChecker]],
-) -> list[tuple[type[BaseServiceChecker], ServiceRunResult]]:
-    settings = get_settings()
-    client_timeout = httpx.Timeout(settings.default_http_timeout_seconds)
-
-    async with httpx.AsyncClient(
-        timeout=client_timeout,
-        headers={"User-Agent": settings.user_agent},
-        follow_redirects=True,
-    ) as client:
-        return [
-            (service_checker_cls, await service_checker_cls().run_all(client))
-            for service_checker_cls in service_checker_classes
-        ]
-
-
 def _check_result_payload(check_result: Any) -> dict[str, Any]:
+    """Check result payload.
+    
+    Args:
+        check_result: The check result value.
+    
+    Returns:
+        The resulting value.
+    """
     return {
         "check_key": check_result.check_key,
         "status": check_result.status,
@@ -90,9 +42,18 @@ def _serialize_run(
     service_checker_cls: type[BaseServiceChecker],
     run_result: ServiceRunResult,
 ) -> dict[str, Any]:
+    """Serialize run.
+    
+    Args:
+        service_checker_cls: The service checker cls value.
+        run_result: The run result value.
+    
+    Returns:
+        The resulting value.
+    """
     return {
         "service_key": run_result.service_key,
-        "checker_class": _service_checker_path(service_checker_cls),
+        "checker_class": service_checker_path(service_checker_cls),
         "checks": [_check_result_payload(check_result) for check_result in run_result.check_results],
     }
 
@@ -103,7 +64,14 @@ def _print_human(
     *,
     verbose: bool,
 ) -> None:
-    print(f"Service: {run_result.service_key} ({_service_checker_path(service_checker_cls)})")
+    """Print human.
+    
+    Args:
+        service_checker_cls: The service checker cls value.
+        run_result: The run result value.
+        verbose: The verbose value.
+    """
+    print(f"Service: {run_result.service_key} ({service_checker_path(service_checker_cls)})")
     if not run_result.check_results:
         print("  (no checks configured)\n")
         return
@@ -137,10 +105,23 @@ def _print_human(
 
 
 def _has_non_up_result(run_result: ServiceRunResult) -> bool:
+    """Has non up result.
+    
+    Args:
+        run_result: The run result value.
+    
+    Returns:
+        True when the condition is met; otherwise, False.
+    """
     return any(check_result.status != "up" for check_result in run_result.check_results)
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Build parser.
+    
+    Returns:
+        The resulting value.
+    """
     parser = argparse.ArgumentParser(
         prog="is-it-down-run-service-checker",
         description="Run service checkers locally and print results without writing to the database.",
@@ -185,6 +166,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _print_discovered_checkers() -> None:
+    """Print discovered checkers."""
     discovered = discover_service_checkers()
     if not discovered:
         print("No service checkers discovered.")
@@ -192,10 +174,15 @@ def _print_discovered_checkers() -> None:
 
     print("Discovered service checkers:")
     for service_key in sorted(discovered):
-        print(f"- {service_key}: {_service_checker_path(discovered[service_key])}")
+        print(f"- {service_key}: {service_checker_path(discovered[service_key])}")
 
 
 def main() -> None:
+    """Run the entrypoint.
+    
+    Raises:
+        SystemExit: If an error occurs while executing this function.
+    """
     parser = _build_parser()
     args = parser.parse_args()
 

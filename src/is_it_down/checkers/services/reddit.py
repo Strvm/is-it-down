@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.reddit`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -16,6 +18,8 @@ from is_it_down.core.models import CheckResult
 
 
 class RedditStatusPageCheck(BaseCheck):
+    """Represent `RedditStatusPageCheck`."""
+
     check_key = "reddit_status_page"
     endpoint_key = "https://www.redditstatus.com/api/v2/status.json"
     interval_seconds = 60
@@ -24,6 +28,14 @@ class RedditStatusPageCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -46,6 +58,8 @@ class RedditStatusPageCheck(BaseCheck):
 
 
 class RedditAllHotCheck(BaseCheck):
+    """Represent `RedditAllHotCheck`."""
+
     check_key = "reddit_all_hot"
     endpoint_key = "https://www.reddit.com/r/all/hot.json?limit=1"
     interval_seconds = 60
@@ -53,6 +67,14 @@ class RedditAllHotCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -76,6 +98,8 @@ class RedditAllHotCheck(BaseCheck):
 
 
 class RedditSubredditAboutCheck(BaseCheck):
+    """Represent `RedditSubredditAboutCheck`."""
+
     check_key = "reddit_subreddit_about"
     endpoint_key = "https://www.reddit.com/r/reddit/about.json"
     interval_seconds = 60
@@ -83,6 +107,14 @@ class RedditSubredditAboutCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -106,12 +138,19 @@ class RedditSubredditAboutCheck(BaseCheck):
 
 
 class RedditServiceChecker(BaseServiceChecker):
+    """Represent `RedditServiceChecker`."""
+
     service_key = "reddit"
     logo_url = "https://cdn.simpleicons.org/reddit"
     official_uptime = "https://www.redditstatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [
             RedditStatusPageCheck(),
             RedditAllHotCheck(),

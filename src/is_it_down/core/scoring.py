@@ -1,9 +1,19 @@
+"""Provide functionality for `is_it_down.core.scoring`."""
+
 from collections.abc import Mapping, Sequence
 
 from is_it_down.core.models import CheckResult, ServiceStatus
 
 
 def status_from_score(score: float) -> ServiceStatus:
+    """Status from score.
+    
+    Args:
+        score: The score value.
+    
+    Returns:
+        The resulting value.
+    """
     if score >= 95:
         return "up"
     if score >= 70:
@@ -12,6 +22,14 @@ def status_from_score(score: float) -> ServiceStatus:
 
 
 def check_result_score(result: CheckResult) -> float:
+    """Check result score.
+    
+    Args:
+        result: The result value.
+    
+    Returns:
+        The resulting value.
+    """
     if result.status == "up":
         return 100.0
 
@@ -32,6 +50,15 @@ def weighted_service_score(
     check_results: Sequence[CheckResult],
     weights_by_check: Mapping[str, float] | None = None,
 ) -> float:
+    """Weighted service score.
+    
+    Args:
+        check_results: The check results value.
+        weights_by_check: The weights by check value.
+    
+    Returns:
+        The resulting value.
+    """
     if not check_results:
         return 100.0
 

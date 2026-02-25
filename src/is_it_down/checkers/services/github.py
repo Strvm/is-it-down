@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.github`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -15,6 +17,8 @@ from is_it_down.core.models import CheckResult
 
 
 class GitHubApiRateLimitCheck(BaseCheck):
+    """Represent `GitHubApiRateLimitCheck`."""
+
     check_key = "github_api_rate_limit"
     endpoint_key = "https://api.github.com/rate_limit"
     interval_seconds = 60
@@ -22,6 +26,14 @@ class GitHubApiRateLimitCheck(BaseCheck):
     weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(
             self.endpoint_key,
             headers={
@@ -56,6 +68,8 @@ class GitHubApiRateLimitCheck(BaseCheck):
 
 
 class GitHubStatusPageCheck(BaseCheck):
+    """Represent `GitHubStatusPageCheck`."""
+
     check_key = "github_status_page"
     endpoint_key = "https://www.githubstatus.com/api/v2/status.json"
     interval_seconds = 60
@@ -63,6 +77,14 @@ class GitHubStatusPageCheck(BaseCheck):
     weight = 0.35
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -86,12 +108,22 @@ class GitHubStatusPageCheck(BaseCheck):
 
 
 class GitHubHomepageCheck(BaseCheck):
+    """Represent `GitHubHomepageCheck`."""
+
     check_key = "github_homepage"
     endpoint_key = "https://github.com/"
     interval_seconds = 60
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -113,12 +145,19 @@ class GitHubHomepageCheck(BaseCheck):
 
 
 class GitHubServiceChecker(BaseServiceChecker):
+    """Represent `GitHubServiceChecker`."""
+
     service_key = "github"
     logo_url = "https://cdn.simpleicons.org/github"
     official_uptime = "https://www.githubstatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [
             GitHubApiRateLimitCheck(),
             GitHubStatusPageCheck(),

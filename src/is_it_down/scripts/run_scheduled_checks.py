@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.scripts.run_scheduled_checks`."""
+
 import argparse
 import asyncio
 import json
@@ -6,27 +8,29 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-import httpx
 import structlog
 from google.cloud import bigquery
 
 from is_it_down.checkers.base import BaseServiceChecker, ServiceRunResult
 from is_it_down.checkers.proxy import clear_proxy_resolution_cache
 from is_it_down.logging import configure_logging
-from is_it_down.scripts.run_service_checker import (
+from is_it_down.scripts.checker_runtime import (
     discover_service_checkers,
+    execute_service_checkers,
     resolve_service_checker_targets,
+    service_checker_path,
 )
 from is_it_down.settings import get_settings
 
 logger = structlog.get_logger(__name__)
 
 
-def _service_checker_path(service_checker_cls: type[BaseServiceChecker]) -> str:
-    return f"{service_checker_cls.__module__}.{service_checker_cls.__name__}"
-
-
 def _build_parser() -> argparse.ArgumentParser:
+    """Build parser.
+    
+    Returns:
+        The resulting value.
+    """
     parser = argparse.ArgumentParser(
         prog="is-it-down-run-scheduled-checks",
         description="Run service checkers and write results to BigQuery.",
@@ -62,33 +66,19 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _resolve_service_checker_classes(targets: list[str]) -> list[type[BaseServiceChecker]]:
+    """Resolve service checker classes.
+    
+    Args:
+        targets: The targets value.
+    
+    Returns:
+        The resulting value.
+    """
     if targets:
         return resolve_service_checker_targets(targets)
 
     discovered = discover_service_checkers()
     return [discovered[key] for key in sorted(discovered)]
-
-
-async def _execute_service_checkers(
-    service_checker_classes: list[type[BaseServiceChecker]],
-) -> list[tuple[type[BaseServiceChecker], ServiceRunResult]]:
-    settings = get_settings()
-    timeout = httpx.Timeout(settings.default_http_timeout_seconds)
-    semaphore = asyncio.Semaphore(settings.checker_concurrency)
-
-    async with httpx.AsyncClient(
-        timeout=timeout,
-        headers={"User-Agent": settings.user_agent},
-        follow_redirects=True,
-    ) as client:
-
-        async def _run_one(
-            service_checker_cls: type[BaseServiceChecker],
-        ) -> tuple[type[BaseServiceChecker], ServiceRunResult]:
-            async with semaphore:
-                return service_checker_cls, await service_checker_cls().run_all(client)
-
-        return await asyncio.gather(*[_run_one(service_checker_cls) for service_checker_cls in service_checker_classes])
 
 
 def _build_bigquery_rows(
@@ -98,11 +88,22 @@ def _build_bigquery_rows(
     execution_id: str | None,
     ingested_at: datetime,
 ) -> list[dict[str, Any]]:
+    """Build bigquery rows.
+    
+    Args:
+        runs: The runs value.
+        run_id: The run id value.
+        execution_id: The execution id value.
+        ingested_at: The ingested at value.
+    
+    Returns:
+        The resulting value.
+    """
     rows: list[dict[str, Any]] = []
     ingested_at_iso = ingested_at.isoformat()
 
     for service_checker_cls, run_result in runs:
-        checker_class = _service_checker_path(service_checker_cls)
+        checker_class = service_checker_path(service_checker_cls)
         for check_result in run_result.check_results:
             metadata_json: str | None = None
             if check_result.metadata:
@@ -130,6 +131,14 @@ def _build_bigquery_rows(
 
 
 def _insert_rows(rows: list[dict[str, Any]]) -> None:
+    """Insert rows.
+    
+    Args:
+        rows: The rows value.
+    
+    Raises:
+        RuntimeError: If an error occurs while executing this function.
+    """
     if not rows:
         logger.info("checker_job.no_rows_to_insert")
         return
@@ -151,10 +160,29 @@ def _insert_rows(rows: list[dict[str, Any]]) -> None:
 
 
 def _has_non_up_result(runs: list[tuple[type[BaseServiceChecker], ServiceRunResult]]) -> bool:
+    """Has non up result.
+    
+    Args:
+        runs: The runs value.
+    
+    Returns:
+        True when the condition is met; otherwise, False.
+    """
     return any(check_result.status != "up" for _, run_result in runs for check_result in run_result.check_results)
 
 
 async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
+    """Run once.
+    
+    Args:
+        targets: The targets value.
+        strict: The strict value.
+        dry_run: The dry run value.
+    
+    Raises:
+        RuntimeError: If an error occurs while executing this function.
+        SystemExit: If an error occurs while executing this function.
+    """
     settings = get_settings()
     configure_logging(settings.log_level)
 
@@ -168,7 +196,11 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
         dry_run=dry_run,
     )
 
-    runs = await _execute_service_checkers(service_checker_classes)
+    runs = await execute_service_checkers(
+        service_checker_classes,
+        concurrent=True,
+        concurrency_limit=settings.checker_concurrency,
+    )
 
     run_id = uuid4().hex
     execution_id = os.getenv("CLOUD_RUN_EXECUTION")
@@ -200,6 +232,7 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
 
 
 def main() -> None:
+    """Run the entrypoint."""
     parser = _build_parser()
     args = parser.parse_args()
 

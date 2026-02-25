@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.api.schemas`."""
+
 from datetime import datetime
 from typing import Any, Literal
 
@@ -5,6 +7,8 @@ from pydantic import BaseModel, Field
 
 
 class ServiceSummary(BaseModel):
+    """Represent `ServiceSummary`."""
+
     service_id: int
     slug: str
     name: str
@@ -19,6 +23,8 @@ class ServiceSummary(BaseModel):
 
 
 class CheckRunSummary(BaseModel):
+    """Represent `CheckRunSummary`."""
+
     check_key: str
     status: Literal["up", "degraded", "down"]
     observed_at: datetime
@@ -30,6 +36,8 @@ class CheckRunSummary(BaseModel):
 
 
 class RelatedServiceSummary(BaseModel):
+    """Represent `RelatedServiceSummary`."""
+
     service_id: int
     slug: str
     name: str
@@ -38,6 +46,8 @@ class RelatedServiceSummary(BaseModel):
 
 
 class ServiceDetail(BaseModel):
+    """Represent `ServiceDetail`."""
+
     service_id: int
     slug: str
     name: str
@@ -50,6 +60,8 @@ class ServiceDetail(BaseModel):
 
 
 class SnapshotPoint(BaseModel):
+    """Represent `SnapshotPoint`."""
+
     observed_at: datetime
     status: Literal["up", "degraded", "down"]
     raw_score: float
@@ -58,6 +70,8 @@ class SnapshotPoint(BaseModel):
 
 
 class IncidentSummary(BaseModel):
+    """Represent `IncidentSummary`."""
+
     incident_id: int
     service_id: int
     status: str
@@ -70,6 +84,8 @@ class IncidentSummary(BaseModel):
 
 
 class BaseCheckUptimeSummary(BaseModel):
+    """Represent `BaseCheckUptimeSummary`."""
+
     check_key: str
     uptime_percent: float
     health_score: float
@@ -78,6 +94,8 @@ class BaseCheckUptimeSummary(BaseModel):
 
 
 class ServiceUptimeSummary(BaseModel):
+    """Represent `ServiceUptimeSummary`."""
+
     service_id: int
     slug: str
     name: str
@@ -88,6 +106,8 @@ class ServiceUptimeSummary(BaseModel):
 
 
 class CheckerTrendPoint(BaseModel):
+    """Represent `CheckerTrendPoint`."""
+
     bucket_start: datetime
     check_key: str
     uptime_percent: float
@@ -97,6 +117,8 @@ class CheckerTrendPoint(BaseModel):
 
 
 class ServiceCheckerTrendSummary(BaseModel):
+    """Represent `ServiceCheckerTrendSummary`."""
+
     service_id: int
     slug: str
     name: str

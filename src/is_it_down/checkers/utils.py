@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.utils`."""
+
 import json
 from typing import Any, Final
 
@@ -9,11 +11,63 @@ _STATUSPAGE_DEGRADED: Final[set[str]] = {"minor", "major"}
 _STATUSPAGE_DOWN: Final[set[str]] = {"critical", "maintenance"}
 
 
+def json_dict_or_none(response: httpx.Response) -> dict[str, Any] | None:
+    """Json dict or none.
+    
+    Args:
+        response: The response value.
+    
+    Returns:
+        The resulting value.
+    """
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return payload
+
+
+def json_list_or_none(response: httpx.Response) -> list[Any] | None:
+    """Json list or none.
+    
+    Args:
+        response: The response value.
+    
+    Returns:
+        The resulting value.
+    """
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, list):
+        return None
+    return payload
+
+
 def response_latency_ms(response: httpx.Response) -> int:
+    """Response latency ms.
+    
+    Args:
+        response: The response value.
+    
+    Returns:
+        The resulting value.
+    """
     return int(response.elapsed.total_seconds() * 1000)
 
 
 def status_from_http(response: httpx.Response) -> ServiceStatus:
+    """Status from http.
+    
+    Args:
+        response: The response value.
+    
+    Returns:
+        The resulting value.
+    """
     if response.status_code >= 500:
         return "down"
     if response.status_code >= 400:
@@ -22,6 +76,15 @@ def status_from_http(response: httpx.Response) -> ServiceStatus:
 
 
 def apply_statuspage_indicator(base_status: ServiceStatus, indicator: str | None) -> ServiceStatus:
+    """Apply statuspage indicator.
+    
+    Args:
+        base_status: The base status value.
+        indicator: The indicator value.
+    
+    Returns:
+        The resulting value.
+    """
     if indicator in _STATUSPAGE_DOWN:
         return "down"
     if indicator in _STATUSPAGE_DEGRADED:
@@ -30,6 +93,15 @@ def apply_statuspage_indicator(base_status: ServiceStatus, indicator: str | None
 
 
 def _truncated_text(value: str, *, max_chars: int) -> tuple[str, bool]:
+    """Truncated text.
+    
+    Args:
+        value: The value value.
+        max_chars: The max chars value.
+    
+    Returns:
+        The resulting value.
+    """
     if len(value) <= max_chars:
         return value, False
     return value[:max_chars], True
@@ -40,6 +112,15 @@ def build_response_debug_blob(
     *,
     body_char_limit: int = 1000,
 ) -> dict[str, Any]:
+    """Build response debug blob.
+    
+    Args:
+        response: The response value.
+        body_char_limit: The body char limit value.
+    
+    Returns:
+        The resulting value.
+    """
     debug: dict[str, Any] = {
         "status_code": response.status_code,
         "reason_phrase": response.reason_phrase,
@@ -82,6 +163,17 @@ def add_non_up_debug_metadata(
     response: httpx.Response,
     body_char_limit: int = 1000,
 ) -> dict[str, Any]:
+    """Add non up debug metadata.
+    
+    Args:
+        metadata: The metadata value.
+        status: The status value.
+        response: The response value.
+        body_char_limit: The body char limit value.
+    
+    Returns:
+        The resulting value.
+    """
     if status == "up":
         return metadata
     metadata.setdefault(

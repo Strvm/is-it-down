@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.scripts.seed_demo`."""
+
 import asyncio
 from datetime import UTC, datetime
 
@@ -8,6 +10,7 @@ from is_it_down.db.session import get_sessionmaker
 
 
 async def seed_cloudflare() -> None:
+    """Seed cloudflare."""
     session_factory = get_sessionmaker()
 
     async with session_factory() as session:
@@ -46,6 +49,7 @@ async def seed_cloudflare() -> None:
 
 
 def main() -> None:
+    """Run the entrypoint."""
     asyncio.run(seed_cloudflare())
 
 

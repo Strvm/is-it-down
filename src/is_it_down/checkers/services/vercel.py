@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.vercel`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -8,23 +10,16 @@ from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
+    json_dict_or_none,
     response_latency_ms,
     status_from_http,
 )
 from is_it_down.core.models import CheckResult
 
 
-def _json_dict(response: httpx.Response) -> dict[str, Any] | None:
-    try:
-        payload = response.json()
-    except ValueError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    return payload
-
-
 class VercelStatusPageCheck(BaseCheck):
+    """Represent `VercelStatusPageCheck`."""
+
     check_key = "vercel_status_page"
     endpoint_key = "https://www.vercel-status.com/api/v2/status.json"
     interval_seconds = 60
@@ -32,12 +27,20 @@ class VercelStatusPageCheck(BaseCheck):
     weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
         if response.is_success:
-            payload = _json_dict(response)
+            payload = json_dict_or_none(response)
             if payload is None:
                 status = "degraded"
             else:
@@ -75,6 +78,8 @@ class VercelStatusPageCheck(BaseCheck):
 
 
 class VercelApiUserAuthCheck(BaseCheck):
+    """Represent `VercelApiUserAuthCheck`."""
+
     check_key = "vercel_api_user_auth"
     endpoint_key = "https://api.vercel.com/v2/user"
     interval_seconds = 60
@@ -82,13 +87,21 @@ class VercelApiUserAuthCheck(BaseCheck):
     weight = 0.35
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key, headers={"Accept": "application/json"})
         status = status_from_http(response)
         metadata: dict[str, Any] = {"expected_http_statuses": [401, 403]}
 
         if response.status_code in {401, 403}:
             status = "up"
-            payload = _json_dict(response)
+            payload = json_dict_or_none(response)
             if payload is None:
                 metadata["error_payload_present"] = False
             else:
@@ -113,12 +126,22 @@ class VercelApiUserAuthCheck(BaseCheck):
 
 
 class VercelHomepageCheck(BaseCheck):
+    """Represent `VercelHomepageCheck`."""
+
     check_key = "vercel_homepage"
     endpoint_key = "https://vercel.com/"
     interval_seconds = 60
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -147,12 +170,19 @@ class VercelHomepageCheck(BaseCheck):
 
 
 class VercelServiceChecker(BaseServiceChecker):
+    """Represent `VercelServiceChecker`."""
+
     service_key = "vercel"
     logo_url = "https://cdn.simpleicons.org/vercel"
     official_uptime = "https://www.vercel-status.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [
             VercelStatusPageCheck(),
             VercelApiUserAuthCheck(),

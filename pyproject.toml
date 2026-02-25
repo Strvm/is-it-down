@@ -52,8 +52,14 @@ line-length = 120
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "ASYNC"]
+select = ["E", "F", "I", "B", "ASYNC", "D"]
 ignore = ["B008"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D"]
 
 [tool.ruff.format]
 quote-style = "double"

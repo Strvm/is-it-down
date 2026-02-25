@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.stripe`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -8,23 +10,16 @@ from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
+    json_dict_or_none,
     response_latency_ms,
     status_from_http,
 )
 from is_it_down.core.models import CheckResult
 
 
-def _json_dict(response: httpx.Response) -> dict[str, Any] | None:
-    try:
-        payload = response.json()
-    except ValueError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    return payload
-
-
 class StripeStatusPageCheck(BaseCheck):
+    """Represent `StripeStatusPageCheck`."""
+
     check_key = "stripe_status_page"
     endpoint_key = "https://status.stripe.com/current"
     interval_seconds = 60
@@ -32,12 +27,20 @@ class StripeStatusPageCheck(BaseCheck):
     weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
         metadata: dict[str, Any] = {}
         if response.is_success:
-            payload = _json_dict(response)
+            payload = json_dict_or_none(response)
             if payload is None:
                 status = "degraded"
             else:
@@ -80,6 +83,8 @@ class StripeStatusPageCheck(BaseCheck):
 
 
 class StripeApiUnauthenticatedCheck(BaseCheck):
+    """Represent `StripeApiUnauthenticatedCheck`."""
+
     check_key = "stripe_api_unauthenticated"
     endpoint_key = "https://api.stripe.com/v1/charges?limit=1"
     interval_seconds = 60
@@ -87,13 +92,21 @@ class StripeApiUnauthenticatedCheck(BaseCheck):
     weight = 0.35
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
         metadata: dict[str, Any] = {"expected_http_status": 401}
         if response.status_code == 401:
             status = "up"
-            payload = _json_dict(response)
+            payload = json_dict_or_none(response)
             if payload is None:
                 metadata["error_payload_present"] = False
             else:
@@ -124,12 +137,22 @@ class StripeApiUnauthenticatedCheck(BaseCheck):
 
 
 class StripeJsV3Check(BaseCheck):
+    """Represent `StripeJsV3Check`."""
+
     check_key = "stripe_js_v3"
     endpoint_key = "https://js.stripe.com/v3/"
     interval_seconds = 60
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -159,12 +182,19 @@ class StripeJsV3Check(BaseCheck):
 
 
 class StripeServiceChecker(BaseServiceChecker):
+    """Represent `StripeServiceChecker`."""
+
     service_key = "stripe"
     logo_url = "https://cdn.simpleicons.org/stripe"
     official_uptime = "https://status.stripe.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [
             StripeStatusPageCheck(),
             StripeApiUnauthenticatedCheck(),

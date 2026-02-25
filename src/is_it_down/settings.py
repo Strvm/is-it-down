@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.settings`."""
+
 from functools import lru_cache
 from typing import Literal
 
@@ -6,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Represent `Settings`."""
+
     model_config = SettingsConfigDict(
         env_prefix="IS_IT_DOWN_",
         env_file=".env",
@@ -45,4 +49,9 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    """Get settings.
+    
+    Returns:
+        The resulting value.
+    """
     return Settings()

@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.base`."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,11 +17,15 @@ from is_it_down.core.models import CheckResult
 
 
 class ServiceRunResult(BaseModel):
+    """Represent `ServiceRunResult`."""
+
     service_key: str
     check_results: list[CheckResult]
 
 
 class BaseCheck(ABC):
+    """Represent `BaseCheck`."""
+
     check_key: str
     endpoint_key: str
     interval_seconds: int = 60
@@ -29,10 +35,25 @@ class BaseCheck(ABC):
 
     @abstractmethod
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Execute the check and return a typed result."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
 
     @asynccontextmanager
     async def _execute_client(self, client: httpx.AsyncClient) -> AsyncIterator[httpx.AsyncClient]:
+        """Execute client.
+        
+        Args:
+            client: The client value.
+        
+        Yields:
+            The values produced by the generator.
+        """
         if not self.proxy_setting:
             yield client
             return
@@ -42,6 +63,14 @@ class BaseCheck(ABC):
             yield proxy_client
 
     async def execute(self, client: httpx.AsyncClient) -> CheckResult:
+        """Execute.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         observed_at = datetime.now(UTC)
         try:
             async with self._execute_client(client) as check_client:
@@ -83,6 +112,15 @@ async def _proxy_client_for_check(
     base_client: httpx.AsyncClient,
     proxy_url: str,
 ) -> AsyncIterator[httpx.AsyncClient]:
+    """Proxy client for check.
+    
+    Args:
+        base_client: The base client value.
+        proxy_url: The proxy url value.
+    
+    Yields:
+        The values produced by the generator.
+    """
     async with httpx.AsyncClient(
         timeout=base_client.timeout,
         headers=dict(base_client.headers),
@@ -94,12 +132,22 @@ async def _proxy_client_for_check(
 
 
 class BaseServiceChecker(ABC):
+    """Represent `BaseServiceChecker`."""
+
     service_key: str
     logo_url: str
     official_uptime: str | None = None
     dependencies: Sequence[type["BaseServiceChecker"]] = ()
 
     def __init_subclass__(cls, **kwargs: object) -> None:
+        """Customize subclass initialization.
+        
+        Args:
+            **kwargs: The kwargs value.
+        
+        Raises:
+            TypeError: If an error occurs while executing this function.
+        """
         super().__init_subclass__(**kwargs)
         if cls is BaseServiceChecker:
             return
@@ -109,6 +157,15 @@ class BaseServiceChecker(ABC):
             raise TypeError(f"{cls.__name__} must define a non-empty logo_url.")
 
     def dependency_service_keys(self) -> list[str]:
+        """Dependency service keys.
+        
+        Returns:
+            The resulting value.
+        
+        Raises:
+            TypeError: If an error occurs while executing this function.
+            ValueError: If an error occurs while executing this function.
+        """
         dependency_keys: list[str] = []
         for dependency in self.dependencies:
             if not isinstance(dependency, type) or not issubclass(dependency, BaseServiceChecker):
@@ -125,6 +182,17 @@ class BaseServiceChecker(ABC):
         return dependency_keys
 
     def resolve_check_weights(self, checks: Sequence[BaseCheck]) -> list[BaseCheck]:
+        """Resolve check weights.
+        
+        Args:
+            checks: The checks value.
+        
+        Returns:
+            The resulting value.
+        
+        Raises:
+            ValueError: If an error occurs while executing this function.
+        """
         if not checks:
             return []
 
@@ -172,9 +240,21 @@ class BaseServiceChecker(ABC):
 
     @abstractmethod
     def build_checks(self) -> Sequence[BaseCheck]:
-        """Return concrete endpoint checks for this service."""
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
 
     async def run_all(self, client: httpx.AsyncClient) -> ServiceRunResult:
+        """Run all.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         self.dependency_service_keys()
         checks = self.resolve_check_weights(list(self.build_checks()))
         if not checks:

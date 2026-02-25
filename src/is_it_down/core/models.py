@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.core.models`."""
+
 from datetime import datetime
 from typing import Any, Literal
 
@@ -8,6 +10,8 @@ DependencyType = Literal["hard", "soft"]
 
 
 class CheckResult(BaseModel):
+    """Represent `CheckResult`."""
+
     check_key: str
     status: ServiceStatus
     observed_at: datetime
@@ -19,6 +23,8 @@ class CheckResult(BaseModel):
 
 
 class ServiceScoreResult(BaseModel):
+    """Represent `ServiceScoreResult`."""
+
     raw_score: float
     effective_score: float
     status: ServiceStatus
@@ -28,6 +34,8 @@ class ServiceScoreResult(BaseModel):
 
 
 class DependencySignal(BaseModel):
+    """Represent `DependencySignal`."""
+
     dependency_service_id: int
     dependency_status: ServiceStatus
     dependency_type: DependencyType
@@ -35,6 +43,8 @@ class DependencySignal(BaseModel):
 
 
 class AttributionResult(BaseModel):
+    """Represent `AttributionResult`."""
+
     dependency_impacted: bool
     probable_root_service_id: int | None
     attribution_confidence: float

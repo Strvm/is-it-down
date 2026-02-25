@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.db.models`."""
+
 from datetime import UTC, datetime
 from typing import Any
 
@@ -20,6 +22,8 @@ from is_it_down.db.base import Base
 
 
 class TimestampMixin:
+    """Represent `TimestampMixin`."""
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -27,6 +31,8 @@ class TimestampMixin:
 
 
 class Service(Base, TimestampMixin):
+    """Represent `Service`."""
+
     __tablename__ = "services"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -40,6 +46,8 @@ class Service(Base, TimestampMixin):
 
 
 class ServiceDependency(Base, TimestampMixin):
+    """Represent `ServiceDependency`."""
+
     __tablename__ = "service_dependencies"
     __table_args__ = (UniqueConstraint("service_id", "depends_on_service_id", name="uq_service_dependency_edge"),)
 
@@ -51,6 +59,8 @@ class ServiceDependency(Base, TimestampMixin):
 
 
 class ServiceCheck(Base, TimestampMixin):
+    """Represent `ServiceCheck`."""
+
     __tablename__ = "service_checks"
     __table_args__ = (UniqueConstraint("service_id", "check_key", name="uq_service_check_key"),)
 
@@ -70,6 +80,8 @@ class ServiceCheck(Base, TimestampMixin):
 
 
 class CheckJob(Base, TimestampMixin):
+    """Represent `CheckJob`."""
+
     __tablename__ = "check_jobs"
     __table_args__ = (
         UniqueConstraint("idempotency_key", name="uq_check_job_idempotency"),
@@ -89,6 +101,8 @@ class CheckJob(Base, TimestampMixin):
 
 
 class CheckRun(Base):
+    """Represent `CheckRun`."""
+
     __tablename__ = "check_runs"
     __table_args__ = (Index("ix_check_runs_service_check_observed", "service_id", "check_id", "observed_at"),)
 
@@ -106,6 +120,8 @@ class CheckRun(Base):
 
 
 class ServiceSnapshot(Base):
+    """Represent `ServiceSnapshot`."""
+
     __tablename__ = "service_snapshots"
     __table_args__ = (Index("ix_service_snapshots_service_observed", "service_id", "observed_at"),)
 
@@ -123,6 +139,8 @@ class ServiceSnapshot(Base):
 
 
 class Incident(Base, TimestampMixin):
+    """Represent `Incident`."""
+
     __tablename__ = "incidents"
     __table_args__ = (Index("ix_incidents_service_status", "service_id", "status"),)
 
@@ -140,6 +158,8 @@ class Incident(Base, TimestampMixin):
 
 
 class IncidentEvent(Base):
+    """Represent `IncidentEvent`."""
+
     __tablename__ = "incident_events"
     __table_args__ = (Index("ix_incident_events_incident_created", "incident_id", "created_at"),)
 

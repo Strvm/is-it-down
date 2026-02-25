@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.api.app`."""
+
 import uvicorn
 from fastapi import FastAPI
 
@@ -10,11 +12,21 @@ from is_it_down.settings import get_settings
 
 
 def create_app() -> FastAPI:
+    """Create app.
+    
+    Returns:
+        The resulting value.
+    """
     app = FastAPI(title="is-it-down", version="0.1.0")
     register_service_detail_tracking_middleware(app)
 
     @app.get("/healthz", tags=["internal"])
     async def healthz() -> dict[str, str]:
+        """Healthz.
+        
+        Returns:
+            The resulting value.
+        """
         return {"status": "ok"}
 
     app.include_router(services_router)
@@ -28,6 +40,7 @@ app = create_app()
 
 
 def main() -> None:
+    """Run the entrypoint."""
     settings = get_settings()
     configure_logging(settings.log_level)
     uvicorn.run(

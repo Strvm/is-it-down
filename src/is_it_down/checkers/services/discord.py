@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.discord`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
@@ -15,6 +17,8 @@ from is_it_down.core.models import CheckResult
 
 
 class DiscordGatewayCheck(BaseCheck):
+    """Represent `DiscordGatewayCheck`."""
+
     check_key = "discord_gateway"
     endpoint_key = "https://discord.com/api/v9/gateway"
     interval_seconds = 60
@@ -22,6 +26,14 @@ class DiscordGatewayCheck(BaseCheck):
     weight = 0.5
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -45,12 +57,22 @@ class DiscordGatewayCheck(BaseCheck):
 
 
 class DiscordCDNAvatarCheck(BaseCheck):
+    """Represent `DiscordCDNAvatarCheck`."""
+
     check_key = "discord_cdn_avatar"
     endpoint_key = "https://cdn.discordapp.com/embed/avatars/0.png"
     interval_seconds = 60
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -71,12 +93,22 @@ class DiscordCDNAvatarCheck(BaseCheck):
 
 
 class DiscordStatusPageCheck(BaseCheck):
+    """Represent `DiscordStatusPageCheck`."""
+
     check_key = "discord_status_page"
     endpoint_key = "https://discordstatus.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -99,10 +131,17 @@ class DiscordStatusPageCheck(BaseCheck):
 
 
 class DiscordServiceChecker(BaseServiceChecker):
+    """Represent `DiscordServiceChecker`."""
+
     service_key = "discord"
     logo_url = "https://cdn.simpleicons.org/discord"
     official_uptime = "https://discordstatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [DiscordGatewayCheck(), DiscordCDNAvatarCheck(), DiscordStatusPageCheck()]

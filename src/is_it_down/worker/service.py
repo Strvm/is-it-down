@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.worker.service`."""
+
 import asyncio
 from collections import defaultdict
 from datetime import UTC, datetime
@@ -31,12 +33,22 @@ logger = structlog.get_logger(__name__)
 
 
 class ClaimedJob(BaseModel):
+    """Represent `ClaimedJob`."""
+
     id: int
     service_id: int
     check_id: int
 
 
 def _severity_rank(status: str) -> int:
+    """Severity rank.
+    
+    Args:
+        status: The status value.
+    
+    Returns:
+        The resulting value.
+    """
     mapping = {"up": 0, "degraded": 1, "down": 2}
     return mapping.get(status, 0)
 
@@ -45,6 +57,15 @@ async def _latest_service_check_results(
     session: AsyncSession,
     service_id: int,
 ) -> tuple[list[CheckResult], dict[str, float]]:
+    """Latest service check results.
+    
+    Args:
+        session: The session value.
+        service_id: The service id value.
+    
+    Returns:
+        The resulting value.
+    """
     latest_runs = (
         select(
             CheckRun.check_id.label("check_id"),
@@ -111,6 +132,15 @@ async def _latest_service_check_results(
 
 
 async def _dependency_signals(session: AsyncSession, service_id: int) -> list[DependencySignal]:
+    """Dependency signals.
+    
+    Args:
+        session: The session value.
+        service_id: The service id value.
+    
+    Returns:
+        The resulting value.
+    """
     latest_snapshots = select(
         ServiceSnapshot.service_id.label("service_id"),
         ServiceSnapshot.status.label("status"),
@@ -162,6 +192,16 @@ async def _sync_incident_state(
     probable_root_service_id: int | None,
     confidence: float,
 ) -> None:
+    """Sync incident state.
+    
+    Args:
+        session: The session value.
+        service_id: The service id value.
+        status: The status value.
+        observed_at: The observed at value.
+        probable_root_service_id: The probable root service id value.
+        confidence: The confidence value.
+    """
     open_incident_stmt = (
         select(Incident)
         .where(Incident.service_id == service_id)
@@ -228,6 +268,13 @@ async def _recompute_service_snapshot(
     service_id: int,
     observed_at: datetime,
 ) -> None:
+    """Recompute service snapshot.
+    
+    Args:
+        session: The session value.
+        service_id: The service id value.
+        observed_at: The observed at value.
+    """
     check_results, weights_by_check = await _latest_service_check_results(session, service_id)
 
     raw_score = weighted_service_score(check_results, weights_by_check)
@@ -273,6 +320,15 @@ async def _process_claimed_job(
     per_service_semaphores: dict[int, asyncio.Semaphore],
     global_semaphore: asyncio.Semaphore,
 ) -> None:
+    """Process claimed job.
+    
+    Args:
+        claimed_job: The claimed job value.
+        session_factory: The session factory value.
+        client: The client value.
+        per_service_semaphores: The per service semaphores value.
+        global_semaphore: The global semaphore value.
+    """
     service_semaphore = per_service_semaphores[claimed_job.service_id]
 
     async with global_semaphore, service_semaphore:
@@ -339,6 +395,11 @@ async def _process_claimed_job(
 
 
 def _default_worker_id() -> str:
+    """Default worker id.
+    
+    Returns:
+        The resulting value.
+    """
     return f"{gethostname()}-{uuid4().hex[:12]}"
 
 
@@ -352,6 +413,20 @@ async def run_worker_batch(
     per_service_semaphores: dict[int, asyncio.Semaphore] | None = None,
     global_semaphore: asyncio.Semaphore | None = None,
 ) -> int:
+    """Run worker batch.
+    
+    Args:
+        session_factory: The session factory value.
+        worker_id: The worker id value.
+        client: The client value.
+        batch_size: The batch size value.
+        lease_seconds: The lease seconds value.
+        per_service_semaphores: The per service semaphores value.
+        global_semaphore: The global semaphore value.
+    
+    Returns:
+        The resulting value.
+    """
     settings = get_settings()
 
     if session_factory is None:
@@ -408,6 +483,11 @@ async def run_worker_batch(
 
 
 async def run_worker_loop(session_factory: async_sessionmaker[AsyncSession] | None = None) -> None:
+    """Run worker loop.
+    
+    Args:
+        session_factory: The session factory value.
+    """
     settings = get_settings()
     configure_logging(settings.log_level)
 
