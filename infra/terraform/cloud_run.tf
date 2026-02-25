@@ -81,6 +81,7 @@ resource "google_cloud_run_v2_job" "checker" {
 
   depends_on = [
     google_project_service.required,
+    google_artifact_registry_repository.checker_images,
     google_bigquery_table.check_results,
     google_project_iam_member.checker_bigquery_data_editor,
     google_project_iam_member.checker_bigquery_job_user,

@@ -25,3 +25,7 @@ output "bigquery_table_id" {
 output "checker_runtime_service_account" {
   value = google_service_account.checker_runtime.email
 }
+
+output "artifact_registry_repository" {
+  value = google_artifact_registry_repository.checker_images.repository_id
+}
