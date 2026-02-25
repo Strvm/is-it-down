@@ -1,0 +1,42 @@
+name: Deploy - Build Image
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      project_id:
+        required: true
+        type: string
+      region:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+    secrets:
+      GCP_SA_KEY:
+        required: true
+
+jobs:
+  build_image:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment_name }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push image
+        run: |
+          IMAGE="${{ inputs.region }}-docker.pkg.dev/${{ inputs.project_id }}/is-it-down/is-it-down-checker:${{ inputs.image_tag }}"
+          gcloud builds submit --project "${{ inputs.project_id }}" --tag "$IMAGE"

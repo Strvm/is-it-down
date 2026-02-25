@@ -5,6 +5,7 @@ resource "google_project_service" "required" {
     "cloudbuild.googleapis.com",
     "cloudscheduler.googleapis.com",
     "run.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
   ])
 
   project = var.project[terraform.workspace]

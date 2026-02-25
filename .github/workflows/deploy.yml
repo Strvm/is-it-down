@@ -7,76 +7,21 @@ on:
     types: [published]
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'release' && 'prod' || 'dev' }}
-    permissions:
-      contents: read
+  build_image:
+    uses: ./.github/workflows/deploy-build-image.yml
+    with:
+      environment_name: ${{ github.event_name == 'release' && 'prod' || 'dev' }}
+      project_id: ${{ github.event_name == 'release' && 'is-it-down-prod' || 'is-it-down-dev' }}
+      region: us-central1
+      image_tag: ${{ github.sha }}
+    secrets: inherit
 
-    env:
-      REGION: us-central1
-      WORKSPACE: ${{ github.event_name == 'release' && 'prod' || 'dev' }}
-      PROJECT_ID: ${{ github.event_name == 'release' && 'is-it-down-prod' || 'is-it-down-dev' }}
-      TERRAFORM_DIR: infra/terraform
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform Init
-        run: |
-          terraform -chdir="$TERRAFORM_DIR" init -input=false \
-            -backend-config="configs/config.${WORKSPACE}.tfbackend"
-
-      - name: Terraform workspace select or create
-        run: |
-          terraform -chdir="$TERRAFORM_DIR" workspace select "$WORKSPACE" || \
-          terraform -chdir="$TERRAFORM_DIR" workspace new "$WORKSPACE"
-
-      - name: Terraform bootstrap IAM for deploy SA
-        env:
-          TF_VAR_image_tag: ${{ github.sha }}
-        run: |
-          terraform -chdir="$TERRAFORM_DIR" apply -input=false -auto-approve \
-            -target=module.iam.google_project_iam_member.github_actions_permissions
-
-      - name: Enable build APIs
-        run: |
-          gcloud services enable \
-            artifactregistry.googleapis.com \
-            cloudbuild.googleapis.com \
-            --project "$PROJECT_ID"
-
-      - name: Ensure Artifact Registry repository exists
-        run: |
-          if ! gcloud artifacts repositories describe is-it-down \
-            --project "$PROJECT_ID" \
-            --location "$REGION" >/dev/null 2>&1; then
-            gcloud artifacts repositories create is-it-down \
-              --project "$PROJECT_ID" \
-              --repository-format docker \
-              --location "$REGION" \
-              --description "is-it-down container images"
-          fi
-
-      - name: Build and push image
-        run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/is-it-down/is-it-down-checker:${GITHUB_SHA}"
-          gcloud builds submit --project "$PROJECT_ID" --tag "$IMAGE"
-          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-
-      - name: Terraform apply
-        env:
-          TF_VAR_image_tag: ${{ github.sha }}
-        run: |
-          terraform -chdir="$TERRAFORM_DIR" apply -input=false -auto-approve
+  terraform_apply:
+    needs: build_image
+    uses: ./.github/workflows/deploy-terraform-apply.yml
+    with:
+      environment_name: ${{ github.event_name == 'release' && 'prod' || 'dev' }}
+      workspace: ${{ github.event_name == 'release' && 'prod' || 'dev' }}
+      image_tag: ${{ github.sha }}
+      terraform_dir: infra/terraform
+    secrets: inherit

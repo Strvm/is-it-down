@@ -1,0 +1,54 @@
+name: Deploy - Terraform Apply
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      workspace:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+      terraform_dir:
+        required: false
+        type: string
+        default: infra/terraform
+    secrets:
+      GCP_SA_KEY:
+        required: true
+
+jobs:
+  terraform_apply:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment_name }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        run: |
+          terraform -chdir="${{ inputs.terraform_dir }}" init -input=false \
+            -backend-config="configs/config.${{ inputs.workspace }}.tfbackend"
+
+      - name: Terraform workspace select or create
+        run: |
+          terraform -chdir="${{ inputs.terraform_dir }}" workspace select "${{ inputs.workspace }}" || \
+          terraform -chdir="${{ inputs.terraform_dir }}" workspace new "${{ inputs.workspace }}"
+
+      - name: Terraform apply
+        env:
+          TF_VAR_image_tag: ${{ inputs.image_tag }}
+        run: |
+          terraform -chdir="${{ inputs.terraform_dir }}" apply -input=false -auto-approve
