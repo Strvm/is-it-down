@@ -1,19 +1,27 @@
-name: Deploy
+name: Deploy Checker Job
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches: [main]
+  release:
+    types: [published]
 
 jobs:
   deploy:
+    if: |
+      github.event_name == 'release' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'release' && 'prod' || 'dev' }}
     permissions:
       contents: read
-      id-token: write
 
     env:
-      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      REGION: ${{ secrets.GCP_REGION }}
+      REGION: us-central1
+      WORKSPACE: ${{ github.event_name == 'release' && 'prod' || 'dev' }}
+      PROJECT_ID: ${{ github.event_name == 'release' && 'is-it-down-prod' || 'is-it-down-dev' }}
+      TERRAFORM_DIR: infra/terraform
 
     steps:
       - uses: actions/checkout@v4
@@ -21,32 +29,51 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Build image
-        run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/is-it-down/is-it-down:${GITHUB_SHA}"
-          gcloud builds submit --tag "$IMAGE"
-          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Enable build APIs
+        run: |
+          gcloud services enable \
+            artifactregistry.googleapis.com \
+            cloudbuild.googleapis.com \
+            --project "$PROJECT_ID"
+
+      - name: Ensure Artifact Registry repository exists
+        run: |
+          if ! gcloud artifacts repositories describe is-it-down \
+            --project "$PROJECT_ID" \
+            --location "$REGION" >/dev/null 2>&1; then
+            gcloud artifacts repositories create is-it-down \
+              --project "$PROJECT_ID" \
+              --repository-format docker \
+              --location "$REGION" \
+              --description "is-it-down container images"
+          fi
+
+      - name: Build and push image
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/is-it-down/is-it-down-checker:${GITHUB_SHA}"
+          gcloud builds submit --project "$PROJECT_ID" --tag "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
       - name: Terraform init
-        working-directory: infra/terraform
-        run: terraform init
+        run: |
+          terraform -chdir="$TERRAFORM_DIR" init -input=false \
+            -backend-config="configs/config.${WORKSPACE}.tfbackend"
+
+      - name: Terraform workspace select or create
+        run: |
+          terraform -chdir="$TERRAFORM_DIR" workspace select "$WORKSPACE" || \
+          terraform -chdir="$TERRAFORM_DIR" workspace new "$WORKSPACE"
 
       - name: Terraform apply
-        working-directory: infra/terraform
+        env:
+          TF_VAR_image_tag: ${{ github.sha }}
         run: |
-          terraform apply -auto-approve \
-            -var "project_id=${PROJECT_ID}" \
-            -var "region=${REGION}" \
-            -var "database_password=${{ secrets.DB_PASSWORD }}" \
-            -var "api_image=${IMAGE}" \
-            -var "scheduler_image=${IMAGE}" \
-            -var "worker_image=${IMAGE}"
+          terraform -chdir="$TERRAFORM_DIR" apply -input=false -auto-approve

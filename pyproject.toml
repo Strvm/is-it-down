@@ -8,10 +8,10 @@ authors = [
   { name = "is-it-down contributors" }
 ]
 dependencies = [
-  "alembic>=1.14.0",
   "asyncpg>=0.30.0",
   "fastapi>=0.116.0",
   "greenlet>=3.3.2",
+  "google-cloud-bigquery>=3.38.0",
   "httpx>=0.28.0",
   "pydantic>=2.11.0",
   "pydantic-settings>=2.8.0",
@@ -34,6 +34,7 @@ is-it-down-scheduler = "is_it_down.scheduler.main:main"
 is-it-down-worker = "is_it_down.worker.main:main"
 is-it-down-seed-demo = "is_it_down.scripts.seed_demo:main"
 is-it-down-run-service-checker = "is_it_down.scripts.run_service_checker:main"
+is-it-down-run-scheduled-checks = "is_it_down.scripts.run_scheduled_checks:main"
 
 [build-system]
 requires = ["hatchling>=1.27.0"]

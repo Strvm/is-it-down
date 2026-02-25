@@ -13,10 +13,13 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    env: Literal["local", "staging", "production"] = "local"
+    env: Literal["local", "development", "production"] = "local"
     database_url: str = Field(
         default="postgresql+asyncpg://postgres:postgres@localhost:5432/is_it_down"
     )
+    bigquery_project_id: str | None = None
+    bigquery_dataset_id: str = "is_it_down"
+    bigquery_table_id: str = "check_results"
     log_level: str = "INFO"
 
     scheduler_tick_seconds: float = 5.0
@@ -28,6 +31,7 @@ class Settings(BaseSettings):
     per_service_concurrency: int = 10
     worker_lease_seconds: int = 30
     worker_max_attempts: int = 3
+    checker_concurrency: int = 10
 
     default_http_timeout_seconds: float = 5.0
     user_agent: str = "is-it-down/0.1.0"

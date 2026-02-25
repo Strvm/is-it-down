@@ -342,11 +342,85 @@ async def _process_claimed_job(
                 await retry_session.commit()
 
 
+def _default_worker_id() -> str:
+    return f"{gethostname()}-{uuid4().hex[:12]}"
+
+
+async def run_worker_batch(
+    session_factory: async_sessionmaker[AsyncSession] | None = None,
+    *,
+    worker_id: str | None = None,
+    client: httpx.AsyncClient | None = None,
+    batch_size: int | None = None,
+    lease_seconds: int | None = None,
+    per_service_semaphores: dict[int, asyncio.Semaphore] | None = None,
+    global_semaphore: asyncio.Semaphore | None = None,
+) -> int:
+    settings = get_settings()
+
+    if session_factory is None:
+        session_factory = get_sessionmaker()
+    if worker_id is None:
+        worker_id = _default_worker_id()
+    if batch_size is None:
+        batch_size = settings.worker_batch_size
+    if lease_seconds is None:
+        lease_seconds = settings.worker_lease_seconds
+    if global_semaphore is None:
+        global_semaphore = asyncio.Semaphore(settings.worker_concurrency)
+    if per_service_semaphores is None:
+        per_service_semaphores = defaultdict(
+            lambda: asyncio.Semaphore(settings.per_service_concurrency)
+        )
+
+    own_client = client is None
+    if client is None:
+        timeout = httpx.Timeout(settings.default_http_timeout_seconds)
+        headers = {"User-Agent": settings.user_agent}
+        client = httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True)
+
+    try:
+        now = datetime.now(UTC)
+        async with session_factory() as session:
+            leased = await claim_jobs(
+                session,
+                now=now,
+                worker_id=worker_id,
+                batch_size=batch_size,
+                lease_seconds=lease_seconds,
+            )
+            claimed_jobs = [
+                ClaimedJob(id=job.id, service_id=job.service_id, check_id=job.check_id)
+                for job in leased
+            ]
+            await session.commit()
+
+        if not claimed_jobs:
+            return 0
+
+        await asyncio.gather(
+            *[
+                _process_claimed_job(
+                    claimed_job,
+                    session_factory=session_factory,
+                    client=client,
+                    per_service_semaphores=per_service_semaphores,
+                    global_semaphore=global_semaphore,
+                )
+                for claimed_job in claimed_jobs
+            ]
+        )
+        return len(claimed_jobs)
+    finally:
+        if own_client:
+            await client.aclose()
+
+
 async def run_worker_loop(session_factory: async_sessionmaker[AsyncSession] | None = None) -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
 
-    worker_id = f"{gethostname()}-{uuid4().hex[:12]}"
+    worker_id = _default_worker_id()
     logger.info(
         "worker.starting",
         worker_id=worker_id,
@@ -367,36 +441,15 @@ async def run_worker_loop(session_factory: async_sessionmaker[AsyncSession] | No
 
     async with httpx.AsyncClient(timeout=timeout, headers=headers, follow_redirects=True) as client:
         while True:
-            claimed_jobs: list[ClaimedJob] = []
-            now = datetime.now(UTC)
-
-            async with session_factory() as session:
-                leased = await claim_jobs(
-                    session,
-                    now=now,
-                    worker_id=worker_id,
-                    batch_size=settings.worker_batch_size,
-                    lease_seconds=settings.worker_lease_seconds,
-                )
-                claimed_jobs = [
-                    ClaimedJob(id=job.id, service_id=job.service_id, check_id=job.check_id)
-                    for job in leased
-                ]
-                await session.commit()
-
-            if not claimed_jobs:
-                await asyncio.sleep(settings.worker_poll_seconds)
-                continue
-
-            await asyncio.gather(
-                *[
-                    _process_claimed_job(
-                        claimed_job,
-                        session_factory=session_factory,
-                        client=client,
-                        per_service_semaphores=per_service_semaphores,
-                        global_semaphore=global_semaphore,
-                    )
-                    for claimed_job in claimed_jobs
-                ]
+            processed_count = await run_worker_batch(
+                session_factory=session_factory,
+                worker_id=worker_id,
+                client=client,
+                batch_size=settings.worker_batch_size,
+                lease_seconds=settings.worker_lease_seconds,
+                per_service_semaphores=per_service_semaphores,
+                global_semaphore=global_semaphore,
             )
+
+            if processed_count == 0:
+                await asyncio.sleep(settings.worker_poll_seconds)

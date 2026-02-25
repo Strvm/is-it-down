@@ -1,0 +1,2 @@
+bucket = "is-it-down-terraform-states"
+prefix = "terraform/state"

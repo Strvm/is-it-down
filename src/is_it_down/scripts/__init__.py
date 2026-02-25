@@ -1,1 +1,1 @@
-"""Utility scripts for local and staging setup."""
+"""Utility scripts for local and development setup."""
