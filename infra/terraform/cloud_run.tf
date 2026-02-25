@@ -152,8 +152,8 @@ module "cloud_run_web_service" {
   container_port        = 8080
   allow_public_invoker  = true
   env_vars = {
-    API_BASE_URL             = module.cloud_run_api_service.uri
-    NEXT_PUBLIC_API_BASE_URL = module.cloud_run_api_service.uri
+    API_BASE_URL             = local.api_public_base_url
+    NEXT_PUBLIC_API_BASE_URL = local.api_public_base_url
   }
 
   depends_on = [

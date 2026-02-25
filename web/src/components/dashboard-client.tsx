@@ -229,7 +229,7 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
         </Card>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <section className="grid items-stretch gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredCheckerTrends.length === 0 ? (
           <Card className="fade-in-up md:col-span-2 lg:col-span-3">
             <CardHeader>
@@ -265,9 +265,9 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
               <Link
                 key={serviceTrend.slug}
                 href={`/services/${serviceTrend.slug}`}
-                className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
               >
-                <Card className="fade-in-up transition-all hover:-translate-y-0.5 hover:border-teal-400/70 hover:shadow-md">
+                <Card className="fade-in-up flex h-full flex-col transition-all hover:-translate-y-0.5 hover:border-teal-400/70 hover:shadow-md">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-3 text-base">
                       <img
@@ -283,26 +283,28 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
                       24h checker uptime lines ({serviceTrend.slug}).
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="flex flex-1 flex-col">
                     {checkKeys.length === 0 || chartRows.length === 0 ? (
                       <p className="text-sm text-slate-600">No checker trend points available yet.</p>
                     ) : (
                       <>
-                        <div className="mb-3 flex flex-wrap gap-2">
-                          {series.map((item) => (
-                            <span
-                              key={`${serviceTrend.slug}-${item.dataKey}`}
-                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px]"
-                            >
+                        <div className="mb-3 overflow-x-auto pb-1">
+                          <div className="flex min-w-max gap-2">
+                            {series.map((item) => (
                               <span
-                                className="h-2 w-2 rounded-full"
-                                style={{ backgroundColor: item.color }}
-                              />
-                              <span className="font-medium">{item.checkKey}</span>
-                            </span>
-                          ))}
+                                key={`${serviceTrend.slug}-${item.dataKey}`}
+                                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px]"
+                              >
+                                <span
+                                  className="h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: item.color }}
+                                />
+                                <span className="font-medium">{item.checkKey}</span>
+                              </span>
+                            ))}
+                          </div>
                         </div>
-                        <div className="h-[240px] w-full">
+                        <div className="h-[240px] w-full flex-none">
                           <ChartContainer config={chartConfig} className="h-full w-full">
                             <LineChart
                               accessibilityLayer

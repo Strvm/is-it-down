@@ -27,6 +27,7 @@ File layout:
 - `project_services.tf`: required GCP APIs
 - `bigquery.tf`: BigQuery dataset/table for checker results
 - `cloud_run.tf`: Cloud Run Job + Cloud Run Services + Cloud Scheduler trigger + IAM/service accounts
+- `custom_domains.tf`: optional Cloud Run custom domain mappings for web/API
 - `modules/cloud_run_service`: reusable module for Cloud Run Service resources (API/web)
 
 ## What gets created
@@ -35,6 +36,7 @@ File layout:
 - Cloud Run Job to execute `is-it-down-run-scheduled-checks`
 - Cloud Run Service for FastAPI backend (`is-it-down-api`)
 - Cloud Run Service for Next.js frontend (`is-it-down-web`)
+- Optional custom domain mappings for web root + API subdomain
 - Cloud Scheduler cron trigger that calls `jobs:run`
 - Service accounts and IAM for runtime/trigger
 
@@ -48,4 +50,42 @@ terraform init \
 terraform workspace select dev || terraform workspace new dev
 
 terraform apply -var "image_tag=latest"
+```
+
+## Custom domains (web + API)
+
+Set a root domain for the current workspace with `custom_domain`. Terraform maps:
+
+- web service -> `<custom_domain>`
+- api service -> `<api_subdomain>.<custom_domain>` (default `api`)
+
+Prerequisite: verify ownership of the root domain in Google Search Console for the same GCP project before applying domain mappings.
+
+Example for prod:
+
+```bash
+terraform workspace select prod
+terraform apply \
+  -var 'image_tag=latest'
+```
+
+`custom_domain` defaults to:
+
+```hcl
+{
+  dev  = ""
+  prod = "is-it-down.dev"
+}
+```
+
+After apply, use these outputs to configure DNS at your registrar:
+
+- `web_custom_domain_dns_records`
+- `api_custom_domain_dns_records`
+
+You can inspect them with:
+
+```bash
+terraform output web_custom_domain_dns_records
+terraform output api_custom_domain_dns_records
 ```

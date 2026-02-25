@@ -26,6 +26,26 @@ output "cloud_run_web_url" {
   value = module.cloud_run_web_service.uri
 }
 
+output "web_custom_domain" {
+  value = try(google_cloud_run_domain_mapping.web[0].name, null)
+}
+
+output "api_custom_domain" {
+  value = try(google_cloud_run_domain_mapping.api[0].name, null)
+}
+
+output "web_custom_domain_dns_records" {
+  value = try(google_cloud_run_domain_mapping.web[0].status[0].resource_records, [])
+}
+
+output "api_custom_domain_dns_records" {
+  value = try(google_cloud_run_domain_mapping.api[0].status[0].resource_records, [])
+}
+
+output "api_public_base_url" {
+  value = local.api_public_base_url
+}
+
 output "cloud_scheduler_job_name" {
   value = google_cloud_scheduler_job.run_checker.name
 }

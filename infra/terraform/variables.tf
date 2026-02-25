@@ -109,3 +109,18 @@ variable "checker_concurrency" {
   type    = number
   default = 10
 }
+
+variable "custom_domain" {
+  type = map(string)
+  default = {
+    dev  = ""
+    prod = "is-it-down.dev"
+  }
+  description = "Root domain per workspace. Set to empty string to disable Cloud Run domain mappings."
+}
+
+variable "api_subdomain" {
+  type        = string
+  default     = "api"
+  description = "Subdomain prefix for the API custom domain (for example: api.example.com)."
+}
