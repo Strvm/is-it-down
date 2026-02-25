@@ -2,39 +2,82 @@ substitutions:
   _REGION: us-central1
   _REPOSITORY: is-it-down
   _TAG: latest
+  _CACHE_TAG: latest
 
 steps:
-  - id: build-checker
+  - id: pull-checker-cache
     name: gcr.io/cloud-builders/docker
     waitFor: ["-"]
+    entrypoint: bash
+    args:
+      - -c
+      - >
+        docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-checker:${_CACHE_TAG}
+        || exit 0
+
+  - id: pull-api-cache
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["-"]
+    entrypoint: bash
+    args:
+      - -c
+      - >
+        docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-api:${_CACHE_TAG}
+        || exit 0
+
+  - id: pull-web-cache
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["-"]
+    entrypoint: bash
+    args:
+      - -c
+      - >
+        docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-web:${_CACHE_TAG}
+        || exit 0
+
+  - id: build-checker
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["pull-checker-cache"]
     args:
       - build
       - -f
       - Dockerfile
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-checker:${_CACHE_TAG}
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-checker:${_TAG}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-checker:${_CACHE_TAG}
       - .
 
   - id: build-api
     name: gcr.io/cloud-builders/docker
-    waitFor: ["-"]
+    waitFor: ["pull-api-cache"]
     args:
       - build
       - -f
       - Dockerfile.api
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-api:${_CACHE_TAG}
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-api:${_TAG}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-api:${_CACHE_TAG}
       - .
 
   - id: build-web
     name: gcr.io/cloud-builders/docker
-    waitFor: ["-"]
+    waitFor: ["pull-web-cache"]
     args:
       - build
       - -f
       - Dockerfile.web
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-web:${_CACHE_TAG}
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-web:${_TAG}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-web:${_CACHE_TAG}
       - .
 
   - id: push-checker
@@ -42,21 +85,24 @@ steps:
     waitFor: ["build-checker"]
     args:
       - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-checker:${_TAG}
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-checker
 
   - id: push-api
     name: gcr.io/cloud-builders/docker
     waitFor: ["build-api"]
     args:
       - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-api:${_TAG}
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-api
 
   - id: push-web
     name: gcr.io/cloud-builders/docker
     waitFor: ["build-web"]
     args:
       - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-web:${_TAG}
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-web
 
 options:
   logging: CLOUD_LOGGING_ONLY

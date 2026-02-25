@@ -1,0 +1,15 @@
+.git
+.github
+.idea
+.agents
+.venv
+.pytest_cache
+.ruff_cache
+infra/
+tests/
+**/__pycache__
+web/node_modules
+web/.next
+web/tsconfig.tsbuildinfo
+web/.env.local
+web/.env.*
