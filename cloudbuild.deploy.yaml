@@ -10,30 +10,42 @@ steps:
     waitFor: ["-"]
     entrypoint: bash
     args:
-      - -c
-      - >
-        docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-checker:${_CACHE_TAG}
-        || exit 0
+      - -ceu
+      - |
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-checker:${_CACHE_TAG}"
+        if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
+          docker pull "$IMAGE"
+        else
+          echo "No cache image found for $IMAGE; continuing without cache."
+        fi
 
   - id: pull-api-cache
     name: gcr.io/cloud-builders/docker
     waitFor: ["-"]
     entrypoint: bash
     args:
-      - -c
-      - >
-        docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-api:${_CACHE_TAG}
-        || exit 0
+      - -ceu
+      - |
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-api:${_CACHE_TAG}"
+        if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
+          docker pull "$IMAGE"
+        else
+          echo "No cache image found for $IMAGE; continuing without cache."
+        fi
 
   - id: pull-web-cache
     name: gcr.io/cloud-builders/docker
     waitFor: ["-"]
     entrypoint: bash
     args:
-      - -c
-      - >
-        docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-web:${_CACHE_TAG}
-        || exit 0
+      - -ceu
+      - |
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/is-it-down-web:${_CACHE_TAG}"
+        if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
+          docker pull "$IMAGE"
+        else
+          echo "No cache image found for $IMAGE; continuing without cache."
+        fi
 
   - id: build-checker
     name: gcr.io/cloud-builders/docker
