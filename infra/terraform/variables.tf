@@ -57,7 +57,7 @@ variable "bigquery_delete_contents_on_destroy" {
 
 variable "checker_schedule" {
   type    = string
-  default = "*/1 * * * *"
+  default = "*/10 * * * *"
 }
 
 variable "checker_schedule_time_zone" {
