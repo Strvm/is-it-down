@@ -114,6 +114,7 @@ class GitHubHomepageCheck(BaseCheck):
 
 class GitHubServiceChecker(BaseServiceChecker):
     service_key = "github"
+    logo_url = "https://cdn.simpleicons.org/github"
     official_uptime = "https://www.githubstatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

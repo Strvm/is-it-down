@@ -1,13 +1,14 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ServiceSummary(BaseModel):
     service_id: int
     slug: str
     name: str
+    logo_url: str
     status: Literal["up", "degraded", "down"]
     raw_score: float
     effective_score: float
@@ -25,15 +26,26 @@ class CheckRunSummary(BaseModel):
     http_status: int | None = None
     error_code: str | None = None
     error_message: str | None = None
-    metadata: dict[str, Any] = {}
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RelatedServiceSummary(BaseModel):
+    service_id: int
+    slug: str
+    name: str
+    logo_url: str
+    status: Literal["up", "degraded", "down"]
 
 
 class ServiceDetail(BaseModel):
     service_id: int
     slug: str
     name: str
+    logo_url: str
+    official_status_url: str | None = None
     description: str | None = None
     snapshot: ServiceSummary
+    likely_related_services: list[RelatedServiceSummary] = Field(default_factory=list)
     latest_checks: list[CheckRunSummary]
 
 
@@ -55,3 +67,38 @@ class IncidentSummary(BaseModel):
     probable_root_service_id: int | None = None
     confidence: float
     summary: str | None = None
+
+
+class BaseCheckUptimeSummary(BaseModel):
+    check_key: str
+    uptime_percent: float
+    health_score: float
+    total_runs: int
+    up_runs: int
+
+
+class ServiceUptimeSummary(BaseModel):
+    service_id: int
+    slug: str
+    name: str
+    logo_url: str
+    uptime_percent: float
+    health_score: float
+    checks: list[BaseCheckUptimeSummary]
+
+
+class CheckerTrendPoint(BaseModel):
+    bucket_start: datetime
+    check_key: str
+    uptime_percent: float
+    health_score: float
+    total_runs: int
+    up_runs: int
+
+
+class ServiceCheckerTrendSummary(BaseModel):
+    service_id: int
+    slug: str
+    name: str
+    logo_url: str
+    points: list[CheckerTrendPoint]

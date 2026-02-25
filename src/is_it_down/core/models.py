@@ -1,13 +1,13 @@
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
+
+from pydantic import BaseModel, Field
 
 ServiceStatus = Literal["up", "degraded", "down"]
 DependencyType = Literal["hard", "soft"]
 
 
-@dataclass(slots=True)
-class CheckResult:
+class CheckResult(BaseModel):
     check_key: str
     status: ServiceStatus
     observed_at: datetime
@@ -15,11 +15,10 @@ class CheckResult:
     http_status: int | None = None
     error_code: str | None = None
     error_message: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-@dataclass(slots=True)
-class ServiceScoreResult:
+class ServiceScoreResult(BaseModel):
     raw_score: float
     effective_score: float
     status: ServiceStatus
@@ -28,16 +27,14 @@ class ServiceScoreResult:
     probable_root_service_id: int | None
 
 
-@dataclass(slots=True)
-class DependencySignal:
+class DependencySignal(BaseModel):
     dependency_service_id: int
     dependency_status: ServiceStatus
     dependency_type: DependencyType
     weight: float
 
 
-@dataclass(slots=True)
-class AttributionResult:
+class AttributionResult(BaseModel):
     dependency_impacted: bool
     probable_root_service_id: int | None
     attribution_confidence: float

@@ -104,6 +104,7 @@ class RedditSubredditAboutCheck(BaseCheck):
 
 class RedditServiceChecker(BaseServiceChecker):
     service_key = "reddit"
+    logo_url = "https://cdn.simpleicons.org/reddit"
     official_uptime = "https://www.redditstatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 

@@ -15,6 +15,8 @@ def test_all_service_checkers_follow_base_contracts() -> None:
         assert isinstance(checker.service_key, str)
         assert checker.service_key
         assert checker.service_key == service_key
+        assert isinstance(checker.logo_url, str)
+        assert checker.logo_url
 
         assert isinstance(checker.dependencies, Sequence)
         dependency_keys = checker.dependency_service_keys()
@@ -25,9 +27,7 @@ def test_all_service_checkers_follow_base_contracts() -> None:
             assert issubclass(dependency, BaseServiceChecker)
 
         if checker.official_uptime is not None:
-            assert checker.official_uptime.startswith("http://") or checker.official_uptime.startswith(
-                "https://"
-            )
+            assert checker.official_uptime.startswith("http://") or checker.official_uptime.startswith("https://")
 
 
 def test_all_service_checkers_expose_valid_check_definitions() -> None:

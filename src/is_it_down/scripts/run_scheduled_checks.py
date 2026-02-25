@@ -142,11 +142,7 @@ def _insert_rows(rows: list[dict[str, Any]]) -> None:
 
 
 def _has_non_up_result(runs: list[tuple[type[BaseServiceChecker], ServiceRunResult]]) -> bool:
-    return any(
-        check_result.status != "up"
-        for _, run_result in runs
-        for check_result in run_result.check_results
-    )
+    return any(check_result.status != "up" for _, run_result in runs for check_result in run_result.check_results)
 
 
 async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
@@ -176,10 +172,7 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
 
     check_count = sum(len(run_result.check_results) for _, run_result in runs)
     non_up_count = sum(
-        1
-        for _, run_result in runs
-        for check_result in run_result.check_results
-        if check_result.status != "up"
+        1 for _, run_result in runs for check_result in run_result.check_results if check_result.status != "up"
     )
 
     logger.info(

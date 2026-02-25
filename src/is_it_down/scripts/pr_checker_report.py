@@ -4,12 +4,12 @@ import importlib
 import inspect
 import json
 import re
-from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Mapping
 
 import httpx
+from pydantic import BaseModel
 
 from is_it_down.checkers.base import BaseServiceChecker
 from is_it_down.settings import get_settings
@@ -18,8 +18,7 @@ COMMENT_MARKER = "<!-- is-it-down-checker-results -->"
 SERVICE_CHECKER_FILE_RE = re.compile(r"^src/is_it_down/checkers/services/(?P<module>[a-zA-Z0-9_]+)\.py$")
 
 
-@dataclass(slots=True)
-class CheckerExecutionResult:
+class CheckerExecutionResult(BaseModel):
     service_key: str
     checker_class: str
     official_uptime: str | None
@@ -182,10 +181,7 @@ def _status_summary(run_result: CheckerExecutionResult) -> str:
             counts[status] += 1
 
     total = len(run_result.checks)
-    return (
-        f"{counts['up']} up / {counts['degraded']} degraded / "
-        f"{counts['down']} down ({total} checks)"
-    )
+    return f"{counts['up']} up / {counts['degraded']} degraded / {counts['down']} down ({total} checks)"
 
 
 def render_comment_markdown(
@@ -224,18 +220,13 @@ def render_comment_markdown(
     for result in results:
         dependencies = ", ".join(result.dependencies) if result.dependencies else "-"
         summary = "error" if result.error else _status_summary(result)
-        lines.append(
-            f"| `{result.service_key}` | `{result.checker_class}` | `{dependencies}` | {summary} |"
-        )
+        lines.append(f"| `{result.service_key}` | `{result.checker_class}` | `{dependencies}` | {summary} |")
 
     lines.append("")
     lines.append("Full JSON payload is uploaded as the workflow artifact `checker-preview-results`.")
     lines.append("")
     for result in results:
-        lines.append(
-            f"<details><summary><strong>{result.service_key}</strong> "
-            f"({result.changed_module})</summary>"
-        )
+        lines.append(f"<details><summary><strong>{result.service_key}</strong> ({result.changed_module})</summary>")
         lines.append("")
 
         if result.official_uptime:
@@ -267,9 +258,7 @@ def render_comment_markdown(
             non_up_checks = [check for check in result.checks if check.get("status") in {"degraded", "down"}]
             if non_up_checks:
                 lines.append("")
-                lines.append(
-                    f"<details><summary>Verbose non-up check logs ({len(non_up_checks)})</summary>"
-                )
+                lines.append(f"<details><summary>Verbose non-up check logs ({len(non_up_checks)})</summary>")
                 lines.append("")
                 for check in non_up_checks:
                     lines.append(f"Check: `{check.get('check_key', '-')}`")
@@ -293,8 +282,7 @@ def render_comment_markdown(
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run added/modified service checkers for a PR and render a markdown comment body "
-            "with checker results."
+            "Run added/modified service checkers for a PR and render a markdown comment body with checker results."
         )
     )
     parser.add_argument("--changed-files-json", required=True, help="JSON list of changed files")
@@ -350,7 +338,7 @@ def main() -> None:
         "selected_modules": selected_modules,
         "module_errors": module_errors,
         "verbose": args.verbose,
-        "results": [asdict(result) for result in results],
+        "results": [result.model_dump() for result in results],
     }
 
     Path(args.output_markdown).write_text(markdown, encoding="utf-8")

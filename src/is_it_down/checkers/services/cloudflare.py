@@ -41,6 +41,7 @@ class CloudflareStatusAPICheck(BaseCheck):
 
 class CloudflareServiceChecker(BaseServiceChecker):
     service_key = "cloudflare"
+    logo_url = "https://cdn.simpleicons.org/cloudflare"
     official_uptime = "https://www.cloudflarestatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

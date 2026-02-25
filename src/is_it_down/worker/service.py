@@ -1,12 +1,12 @@
 import asyncio
 from collections import defaultdict
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from socket import gethostname
 from uuid import uuid4
 
 import httpx
 import structlog
+from pydantic import BaseModel
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -30,8 +30,7 @@ from is_it_down.worker.queue import claim_jobs, mark_job_done, mark_job_retry_or
 logger = structlog.get_logger(__name__)
 
 
-@dataclass(slots=True)
-class ClaimedJob:
+class ClaimedJob(BaseModel):
     id: int
     service_id: int
     check_id: int
@@ -112,16 +111,13 @@ async def _latest_service_check_results(
 
 
 async def _dependency_signals(session: AsyncSession, service_id: int) -> list[DependencySignal]:
-    latest_snapshots = (
-        select(
-            ServiceSnapshot.service_id.label("service_id"),
-            ServiceSnapshot.status.label("status"),
-            func.row_number()
-            .over(partition_by=ServiceSnapshot.service_id, order_by=ServiceSnapshot.observed_at.desc())
-            .label("row_num"),
-        )
-        .subquery()
-    )
+    latest_snapshots = select(
+        ServiceSnapshot.service_id.label("service_id"),
+        ServiceSnapshot.status.label("status"),
+        func.row_number()
+        .over(partition_by=ServiceSnapshot.service_id, order_by=ServiceSnapshot.observed_at.desc())
+        .label("row_num"),
+    ).subquery()
 
     stmt = (
         select(
@@ -369,9 +365,7 @@ async def run_worker_batch(
     if global_semaphore is None:
         global_semaphore = asyncio.Semaphore(settings.worker_concurrency)
     if per_service_semaphores is None:
-        per_service_semaphores = defaultdict(
-            lambda: asyncio.Semaphore(settings.per_service_concurrency)
-        )
+        per_service_semaphores = defaultdict(lambda: asyncio.Semaphore(settings.per_service_concurrency))
 
     own_client = client is None
     if client is None:
@@ -389,10 +383,7 @@ async def run_worker_batch(
                 batch_size=batch_size,
                 lease_seconds=lease_seconds,
             )
-            claimed_jobs = [
-                ClaimedJob(id=job.id, service_id=job.service_id, check_id=job.check_id)
-                for job in leased
-            ]
+            claimed_jobs = [ClaimedJob(id=job.id, service_id=job.service_id, check_id=job.check_id) for job in leased]
             await session.commit()
 
         if not claimed_jobs:

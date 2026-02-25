@@ -1,10 +1,5 @@
-from collections.abc import AsyncIterator
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from is_it_down.db.session import get_db_session
+from is_it_down.api.bigquery_store import BigQueryApiStore, get_bigquery_api_store
 
 
-async def db_session_dep() -> AsyncIterator[AsyncSession]:
-    async for session in get_db_session():
-        yield session
+def bigquery_store_dep() -> BigQueryApiStore:
+    return get_bigquery_api_store()

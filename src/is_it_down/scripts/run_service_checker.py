@@ -42,9 +42,7 @@ def resolve_service_checker_targets(targets: Sequence[str]) -> list[type[BaseSer
             loaded = discovered.get(target)
             if loaded is None:
                 available = ", ".join(sorted(discovered)) or "none"
-                raise ValueError(
-                    f"Unknown service checker key '{target}'. Available keys: {available}."
-                )
+                raise ValueError(f"Unknown service checker key '{target}'. Available keys: {available}.")
 
         loaded_path = _service_checker_path(loaded)
         if loaded_path in seen_paths:
@@ -118,18 +116,10 @@ def _print_human(
         error = "-"
         if check_result.error_code or check_result.error_message:
             error = ": ".join(
-                part
-                for part in [check_result.error_code, check_result.error_message]
-                if part is not None
+                part for part in [check_result.error_code, check_result.error_message] if part is not None
             )
 
-        print(
-            f"{check_result.check_key[:40]:40} "
-            f"{check_result.status:9} "
-            f"{latency:9} "
-            f"{http_status:6} "
-            f"{error}"
-        )
+        print(f"{check_result.check_key[:40]:40} {check_result.status:9} {latency:9} {http_status:6} {error}")
 
         if check_result.metadata:
             metadata = json.dumps(check_result.metadata, sort_keys=True)
@@ -179,10 +169,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help=(
-            "Print detailed payload logs for non-up checks, including status code "
-            "and response debug metadata."
-        ),
+        help=("Print detailed payload logs for non-up checks, including status code and response debug metadata."),
     )
     return parser
 

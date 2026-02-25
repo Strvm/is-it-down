@@ -14,9 +14,7 @@ class Settings(BaseSettings):
     )
 
     env: Literal["local", "development", "production"] = "local"
-    database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/is_it_down"
-    )
+    database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/is_it_down")
     bigquery_project_id: str | None = None
     bigquery_dataset_id: str = "is_it_down"
     bigquery_table_id: str = "check_results"

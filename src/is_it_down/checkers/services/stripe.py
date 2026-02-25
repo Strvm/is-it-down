@@ -48,9 +48,7 @@ class StripeStatusPageCheck(BaseCheck):
                 metadata["largestatus"] = large_status
                 if isinstance(component_statuses, dict):
                     metadata["component_statuses"] = component_statuses
-                    metadata["non_up_components"] = [
-                        key for key, value in component_statuses.items() if value != "up"
-                    ]
+                    metadata["non_up_components"] = [key for key, value in component_statuses.items() if value != "up"]
                 else:
                     status = "degraded"
 
@@ -162,6 +160,7 @@ class StripeJsV3Check(BaseCheck):
 
 class StripeServiceChecker(BaseServiceChecker):
     service_key = "stripe"
+    logo_url = "https://cdn.simpleicons.org/stripe"
     official_uptime = "https://status.stripe.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

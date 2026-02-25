@@ -3,17 +3,16 @@ from __future__ import annotations
 import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import isclose
 
 import httpx
+from pydantic import BaseModel
 
 from is_it_down.core.models import CheckResult
 
 
-@dataclass(slots=True)
-class ServiceRunResult:
+class ServiceRunResult(BaseModel):
     service_key: str
     check_results: list[CheckResult]
 
@@ -58,22 +57,28 @@ class BaseCheck(ABC):
 
 class BaseServiceChecker(ABC):
     service_key: str
+    logo_url: str
     official_uptime: str | None = None
     dependencies: Sequence[type["BaseServiceChecker"]] = ()
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        if cls is BaseServiceChecker:
+            return
+
+        logo_url = getattr(cls, "logo_url", None)
+        if not isinstance(logo_url, str) or not logo_url.strip():
+            raise TypeError(f"{cls.__name__} must define a non-empty logo_url.")
 
     def dependency_service_keys(self) -> list[str]:
         dependency_keys: list[str] = []
         for dependency in self.dependencies:
             if not isinstance(dependency, type) or not issubclass(dependency, BaseServiceChecker):
-                raise TypeError(
-                    f"{self.service_key} dependency {dependency!r} is not a BaseServiceChecker subclass."
-                )
+                raise TypeError(f"{self.service_key} dependency {dependency!r} is not a BaseServiceChecker subclass.")
 
             dependency_key = getattr(dependency, "service_key", None)
             if not isinstance(dependency_key, str) or not dependency_key:
-                raise ValueError(
-                    f"{self.service_key} dependency {dependency.__name__} has no valid service_key."
-                )
+                raise ValueError(f"{self.service_key} dependency {dependency.__name__} has no valid service_key.")
 
             if dependency_key == self.service_key:
                 raise ValueError(f"{self.service_key} cannot depend on itself.")
@@ -95,19 +100,13 @@ class BaseServiceChecker(ABC):
 
             weight = float(check.weight)
             if weight <= 0:
-                raise ValueError(
-                    f"{self.service_key}.{check.check_key} weight must be greater than 0."
-                )
+                raise ValueError(f"{self.service_key}.{check.check_key} weight must be greater than 0.")
             if weight > 1:
-                raise ValueError(
-                    f"{self.service_key}.{check.check_key} weight must be <= 1.0."
-                )
+                raise ValueError(f"{self.service_key}.{check.check_key} weight must be <= 1.0.")
 
             explicit_sum += weight
             if explicit_sum > 1 + 1e-9:
-                raise ValueError(
-                    f"{self.service_key} explicit check weights exceed 1.0 (sum={explicit_sum:.6f})."
-                )
+                raise ValueError(f"{self.service_key} explicit check weights exceed 1.0 (sum={explicit_sum:.6f}).")
             check.weight = weight
 
         remaining = 1.0 - explicit_sum
@@ -129,9 +128,7 @@ class BaseServiceChecker(ABC):
 
         total = sum((check.weight or 0.0) for check in checks)
         if not isclose(total, 1.0, rel_tol=1e-9, abs_tol=1e-9):
-            raise ValueError(
-                f"{self.service_key} resolved check weights must sum to 1.0 (sum={total:.6f})."
-            )
+            raise ValueError(f"{self.service_key} resolved check weights must sum to 1.0 (sum={total:.6f}).")
 
         return list(checks)
 

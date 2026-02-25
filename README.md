@@ -11,6 +11,7 @@
 ## Runtime
 
 - `checker-job`: runs service checkers on a schedule and writes rows to BigQuery.
+- `web`: Next.js 16 dashboard UI in `web/` consuming the FastAPI routes.
 
 ## Local Development
 
@@ -19,6 +20,20 @@ uv sync --extra dev
 uv run is-it-down-run-service-checker --list
 uv run is-it-down-run-scheduled-checks --dry-run
 ```
+
+## Frontend Development
+
+```bash
+cd web
+bun install
+cp .env.example .env.local
+bun dev
+```
+
+The frontend reads from:
+
+- `API_BASE_URL` (server-side fetches)
+- `NEXT_PUBLIC_API_BASE_URL` (client visibility/debug)
 
 ## Run Service Checkers Without BigQuery Writes
 

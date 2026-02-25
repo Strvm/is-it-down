@@ -28,6 +28,7 @@ class DummyCheck(BaseCheck):
 
 class DummyServiceChecker(BaseServiceChecker):
     service_key = "dummy"
+    logo_url = "https://example.com/logo.svg"
 
     def build_checks(self) -> list[BaseCheck]:
         return [DummyCheck()]

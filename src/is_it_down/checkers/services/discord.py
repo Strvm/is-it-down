@@ -100,6 +100,7 @@ class DiscordStatusPageCheck(BaseCheck):
 
 class DiscordServiceChecker(BaseServiceChecker):
     service_key = "discord"
+    logo_url = "https://cdn.simpleicons.org/discord"
     official_uptime = "https://discordstatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 

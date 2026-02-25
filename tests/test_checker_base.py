@@ -62,6 +62,7 @@ class UnweightedCheckB(BaseCheck):
 
 class WeightedDistributionServiceChecker(BaseServiceChecker):
     service_key = "weight-distribution"
+    logo_url = "https://example.com/logo.svg"
 
     def build_checks(self) -> list[BaseCheck]:
         return [WeightedHalfCheck(), UnweightedCheckA(), UnweightedCheckB()]
@@ -78,6 +79,7 @@ class TooHeavySingleCheck(BaseCheck):
 
 class TooHeavySingleServiceChecker(BaseServiceChecker):
     service_key = "too-heavy-single"
+    logo_url = "https://example.com/logo.svg"
 
     def build_checks(self) -> list[BaseCheck]:
         return [TooHeavySingleCheck()]
@@ -103,6 +105,7 @@ class WeightOverLimitCheckB(BaseCheck):
 
 class WeightOverLimitServiceChecker(BaseServiceChecker):
     service_key = "too-heavy-total"
+    logo_url = "https://example.com/logo.svg"
 
     def build_checks(self) -> list[BaseCheck]:
         return [WeightOverLimitCheckA(), WeightOverLimitCheckB()]
@@ -128,6 +131,7 @@ class ExplicitButNotOneCheckB(BaseCheck):
 
 class ExplicitButNotOneServiceChecker(BaseServiceChecker):
     service_key = "explicit-not-one"
+    logo_url = "https://example.com/logo.svg"
 
     def build_checks(self) -> list[BaseCheck]:
         return [ExplicitButNotOneCheckA(), ExplicitButNotOneCheckB()]
@@ -188,3 +192,13 @@ def test_resolve_check_weights_raises_if_all_explicit_weights_do_not_sum_to_one(
     checker = ExplicitButNotOneServiceChecker()
     with pytest.raises(ValueError):
         checker.resolve_check_weights(list(checker.build_checks()))
+
+
+def test_service_checker_requires_logo_url() -> None:
+    with pytest.raises(TypeError):
+
+        class MissingLogoServiceChecker(BaseServiceChecker):
+            service_key = "missing-logo"
+
+            def build_checks(self) -> list[BaseCheck]:
+                return [SuccessCheck()]

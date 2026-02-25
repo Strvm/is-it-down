@@ -174,10 +174,8 @@ class DestinyClanBannerDictionaryCheck(_BungiePlatformCheck):
 
 class DestinyServiceChecker(BaseServiceChecker):
     service_key = "destiny"
-    official_uptime = (
-        "https://help.bungie.net/hc/en-us/articles/360049199271-"
-        "Destiny-Server-and-Update-Status"
-    )
+    logo_url = "https://cdn.simpleicons.org/bungie"
+    official_uptime = "https://help.bungie.net/hc/en-us/articles/360049199271-Destiny-Server-and-Update-Status"
     dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:

@@ -5,17 +5,15 @@ from typing import Any
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
 
-from is_it_down.db.models import ServiceSnapshot
-from is_it_down.db.session import get_sessionmaker
+from is_it_down.api.bigquery_store import SnapshotEvent, get_bigquery_api_store
 
 router = APIRouter(prefix="/v1", tags=["stream"])
 
 
-def _snapshot_to_event(snapshot: ServiceSnapshot) -> dict[str, Any]:
+def _snapshot_to_event(snapshot: SnapshotEvent) -> dict[str, Any]:
     return {
-        "snapshot_id": snapshot.id,
+        "snapshot_id": snapshot.snapshot_id,
         "service_id": snapshot.service_id,
         "observed_at": snapshot.observed_at.isoformat(),
         "status": snapshot.status,
@@ -30,30 +28,18 @@ def _snapshot_to_event(snapshot: ServiceSnapshot) -> dict[str, Any]:
 @router.get("/stream")
 async def stream_updates() -> StreamingResponse:
     async def event_generator() -> Any:
-        session_factory = get_sessionmaker()
-        last_id = 0
-
-        async with session_factory() as session:
-            max_seen = await session.scalar(
-                select(ServiceSnapshot.id).order_by(ServiceSnapshot.id.desc()).limit(1)
-            )
-            if max_seen:
-                last_id = max_seen
+        store = get_bigquery_api_store()
+        last_seen = await store.latest_observed_at()
+        if last_seen is None:
+            last_seen = datetime.now(UTC)
 
         while True:
-            async with session_factory() as session:
-                snapshots = (
-                    await session.scalars(
-                        select(ServiceSnapshot)
-                        .where(ServiceSnapshot.id > last_id)
-                        .order_by(ServiceSnapshot.id.asc())
-                        .limit(200)
-                    )
-                ).all()
+            snapshots = await store.snapshot_events_since(last_seen, limit=200)
 
             if snapshots:
                 for snapshot in snapshots:
-                    last_id = snapshot.id
+                    if snapshot.observed_at > last_seen:
+                        last_seen = snapshot.observed_at
                     payload = json.dumps(_snapshot_to_event(snapshot))
                     yield f"event: snapshot\\ndata: {payload}\\n\\n"
             else:
