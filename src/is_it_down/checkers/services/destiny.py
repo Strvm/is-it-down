@@ -22,7 +22,16 @@ class _BungiePlatformCheck(BaseCheck):
         *,
         expected_response_type: type,
     ) -> tuple[ServiceStatus, dict[str, Any]]:
-        """Score response."""
+        """Score response.
+        
+        Args:
+            response: The response value.
+            payload: The payload value.
+            expected_response_type: The expected response type value.
+        
+        Returns:
+            The resulting value.
+        """
         status_code = response.status_code
 
         metadata: dict[str, Any] = {
@@ -75,7 +84,14 @@ class _BungiePlatformCheck(BaseCheck):
         return "up", metadata
 
     def _parse_payload(self, response: httpx.Response) -> dict[str, Any] | None:
-        """Parse payload."""
+        """Parse payload.
+        
+        Args:
+            response: The response value.
+        
+        Returns:
+            The resulting value.
+        """
         try:
             data = response.json()
         except ValueError:
@@ -96,7 +112,14 @@ class DestinyManifestCheck(_BungiePlatformCheck):
     weight = 0.5
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         payload = self._parse_payload(response)
 
@@ -130,7 +153,14 @@ class DestinyGlobalAlertsCheck(_BungiePlatformCheck):
     timeout_seconds = 6.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         payload = self._parse_payload(response)
 
@@ -163,7 +193,14 @@ class DestinyClanBannerDictionaryCheck(_BungiePlatformCheck):
     timeout_seconds = 6.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         payload = self._parse_payload(response)
 
@@ -196,7 +233,11 @@ class DestinyServiceChecker(BaseServiceChecker):
     dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
-        """Build checks."""
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [
             DestinyManifestCheck(),
             DestinyGlobalAlertsCheck(),

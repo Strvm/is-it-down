@@ -28,7 +28,14 @@ class RedditStatusPageCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -60,7 +67,14 @@ class RedditAllHotCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -93,7 +107,14 @@ class RedditSubredditAboutCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -125,7 +146,11 @@ class RedditServiceChecker(BaseServiceChecker):
     dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
-        """Build checks."""
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [
             RedditStatusPageCheck(),
             RedditAllHotCheck(),

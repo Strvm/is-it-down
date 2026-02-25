@@ -14,7 +14,14 @@ router = APIRouter(prefix="/v1", tags=["stream"])
 
 
 def _snapshot_to_event(snapshot: SnapshotEvent) -> dict[str, Any]:
-    """Snapshot to event."""
+    """Snapshot to event.
+    
+    Args:
+        snapshot: The snapshot value.
+    
+    Returns:
+        The resulting value.
+    """
     return {
         "snapshot_id": snapshot.snapshot_id,
         "service_id": snapshot.service_id,
@@ -30,9 +37,17 @@ def _snapshot_to_event(snapshot: SnapshotEvent) -> dict[str, Any]:
 
 @router.get("/stream")
 async def stream_updates() -> StreamingResponse:
-    """Stream updates."""
+    """Stream updates.
+    
+    Returns:
+        The resulting value.
+    """
     async def event_generator() -> Any:
-        """Event generator."""
+        """Event generator.
+        
+        Yields:
+            The values produced by the generator.
+        """
         store = get_bigquery_api_store()
         last_seen = await store.latest_observed_at()
         if last_seen is None:

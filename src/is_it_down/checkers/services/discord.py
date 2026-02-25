@@ -26,7 +26,14 @@ class DiscordGatewayCheck(BaseCheck):
     weight = 0.5
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -58,7 +65,14 @@ class DiscordCDNAvatarCheck(BaseCheck):
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -87,7 +101,14 @@ class DiscordStatusPageCheck(BaseCheck):
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -118,5 +139,9 @@ class DiscordServiceChecker(BaseServiceChecker):
     dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
-        """Build checks."""
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [DiscordGatewayCheck(), DiscordCDNAvatarCheck(), DiscordStatusPageCheck()]

@@ -27,7 +27,14 @@ class StripeStatusPageCheck(BaseCheck):
     weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -85,7 +92,14 @@ class StripeApiUnauthenticatedCheck(BaseCheck):
     weight = 0.35
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -131,7 +145,14 @@ class StripeJsV3Check(BaseCheck):
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -169,7 +190,11 @@ class StripeServiceChecker(BaseServiceChecker):
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
-        """Build checks."""
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [
             StripeStatusPageCheck(),
             StripeApiUnauthenticatedCheck(),

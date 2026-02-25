@@ -10,7 +10,14 @@ _NON_DETAIL_SEGMENTS = frozenset({"uptime", "checker-trends"})
 
 
 def _service_slug_from_path(path: str) -> str | None:
-    """Service slug from path."""
+    """Service slug from path.
+    
+    Args:
+        path: The path value.
+    
+    Returns:
+        The resulting value.
+    """
     parts = tuple(part for part in path.split("/") if part)
     if len(parts) != 3:
         return None
@@ -23,7 +30,14 @@ def _service_slug_from_path(path: str) -> str | None:
 
 
 def _resolve_client_ip(request: Request) -> str | None:
-    """Resolve client ip."""
+    """Resolve client ip.
+    
+    Args:
+        request: The request value.
+    
+    Returns:
+        The resulting value.
+    """
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
         return forwarded_for.split(",")[0].strip() or None
@@ -33,7 +47,12 @@ def _resolve_client_ip(request: Request) -> str | None:
 
 
 def _append_background_task(response: Response, task: BackgroundTask) -> None:
-    """Append background task."""
+    """Append background task.
+    
+    Args:
+        response: The response value.
+        task: The task value.
+    """
     if response.background is None:
         response.background = task
         return
@@ -45,11 +64,23 @@ def _append_background_task(response: Response, task: BackgroundTask) -> None:
 
 
 def register_service_detail_tracking_middleware(app: FastAPI) -> None:
-    """Register service detail tracking middleware."""
+    """Register service detail tracking middleware.
+    
+    Args:
+        app: The app value.
+    """
 
     @app.middleware("http")
     async def service_detail_tracking_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
-        """Service detail tracking middleware."""
+        """Service detail tracking middleware.
+        
+        Args:
+            request: The request value.
+            call_next: The call next value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await call_next(request)
 
         if request.method != "GET" or response.status_code >= 400:

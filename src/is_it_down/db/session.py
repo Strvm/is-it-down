@@ -12,7 +12,11 @@ _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_engine() -> AsyncEngine:
-    """Get engine."""
+    """Get engine.
+    
+    Returns:
+        The resulting value.
+    """
     global _engine
     if _engine is None:
         settings = get_settings()
@@ -21,7 +25,11 @@ def get_engine() -> AsyncEngine:
 
 
 def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
-    """Get sessionmaker."""
+    """Get sessionmaker.
+    
+    Returns:
+        The resulting value.
+    """
     global _sessionmaker
     if _sessionmaker is None:
         _sessionmaker = async_sessionmaker(get_engine(), expire_on_commit=False)
@@ -29,7 +37,11 @@ def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
 
 
 async def get_db_session() -> AsyncIterator[AsyncSession]:
-    """Get db session."""
+    """Get db session.
+    
+    Yields:
+        The values produced by the generator.
+    """
     session_factory = get_sessionmaker()
     async with session_factory() as session:
         yield session

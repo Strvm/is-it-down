@@ -6,7 +6,7 @@ from is_it_down.scheduler.service import run_scheduler_loop
 
 
 def main() -> None:
-    """Main."""
+    """Run the entrypoint."""
     asyncio.run(run_scheduler_loop())
 
 

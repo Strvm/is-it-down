@@ -7,7 +7,11 @@ import structlog
 
 
 def configure_logging(level: str = "INFO") -> None:
-    """Configure logging."""
+    """Configure logging.
+    
+    Args:
+        level: The level value.
+    """
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,

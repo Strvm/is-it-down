@@ -11,12 +11,23 @@ from is_it_down.settings import get_settings
 
 
 def service_checker_path(service_checker_cls: type[BaseServiceChecker]) -> str:
-    """Build a fully qualified Python path for a service checker class."""
+    """Service checker path.
+    
+    Args:
+        service_checker_cls: The service checker cls value.
+    
+    Returns:
+        The resulting value.
+    """
     return f"{service_checker_cls.__module__}.{service_checker_cls.__name__}"
 
 
 def discover_service_checkers() -> dict[str, type[BaseServiceChecker]]:
-    """Discover service checkers and index them by service key."""
+    """Discover service checkers.
+    
+    Returns:
+        The resulting value.
+    """
     discovered: dict[str, type[BaseServiceChecker]] = {}
     for loaded in registry.discover_service_checkers():
         service_key = getattr(loaded, "service_key", None)
@@ -29,7 +40,17 @@ def discover_service_checkers() -> dict[str, type[BaseServiceChecker]]:
 
 
 def resolve_service_checker_targets(targets: Sequence[str]) -> list[type[BaseServiceChecker]]:
-    """Resolve service checker targets from keys or fully qualified class paths."""
+    """Resolve service checker targets.
+    
+    Args:
+        targets: The targets value.
+    
+    Returns:
+        The resulting value.
+    
+    Raises:
+        ValueError: If an error occurs while executing this function.
+    """
     if not targets:
         raise ValueError("At least one service checker target must be provided.")
 
@@ -62,7 +83,16 @@ async def execute_service_checkers(
     concurrent: bool = False,
     concurrency_limit: int | None = None,
 ) -> list[tuple[type[BaseServiceChecker], ServiceRunResult]]:
-    """Execute service checker classes with shared HTTP client settings."""
+    """Execute service checkers.
+    
+    Args:
+        service_checker_classes: The service checker classes value.
+        concurrent: The concurrent value.
+        concurrency_limit: The concurrency limit value.
+    
+    Returns:
+        The resulting value.
+    """
     settings = get_settings()
     client_timeout = httpx.Timeout(settings.default_http_timeout_seconds)
 
@@ -83,7 +113,14 @@ async def execute_service_checkers(
         async def _run_one(
             service_checker_cls: type[BaseServiceChecker],
         ) -> tuple[type[BaseServiceChecker], ServiceRunResult]:
-            """Run one."""
+            """Run one.
+            
+            Args:
+                service_checker_cls: The service checker cls value.
+            
+            Returns:
+                The resulting value.
+            """
             async with semaphore:
                 return service_checker_cls, await service_checker_cls().run_all(client)
 

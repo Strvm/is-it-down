@@ -18,7 +18,14 @@ from is_it_down.core.models import CheckResult
 
 
 def _score_unauthenticated_api_response(response: httpx.Response) -> tuple[str, dict[str, Any]]:
-    """Score unauthenticated api response."""
+    """Score unauthenticated api response.
+    
+    Args:
+        response: The response value.
+    
+    Returns:
+        The resulting value.
+    """
     status = status_from_http(response)
     metadata: dict[str, Any] = {"expected_http_statuses": [401, 403]}
 
@@ -59,7 +66,14 @@ class OpenAIStatusPageCheck(BaseCheck):
     weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
@@ -113,7 +127,14 @@ class OpenAIApiModelsAuthCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key, headers={"Accept": "application/json"})
         status, metadata = _score_unauthenticated_api_response(response)
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
@@ -138,7 +159,14 @@ class OpenAIApiFilesAuthCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key, headers={"Accept": "application/json"})
         status, metadata = _score_unauthenticated_api_response(response)
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
@@ -162,7 +190,11 @@ class OpenAIServiceChecker(BaseServiceChecker):
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
-        """Build checks."""
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [
             OpenAIStatusPageCheck(),
             OpenAIApiModelsAuthCheck(),

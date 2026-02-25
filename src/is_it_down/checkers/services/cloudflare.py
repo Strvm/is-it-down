@@ -25,12 +25,27 @@ _NON_OPERATIONAL_COMPONENT_STATUSES = {
 
 
 def _status_rank(status: str) -> int:
-    """Status rank."""
+    """Status rank.
+    
+    Args:
+        status: The status value.
+    
+    Returns:
+        The resulting value.
+    """
     return {"up": 0, "degraded": 1, "down": 2}.get(status, 0)
 
 
 def _elevate_status(current: str, candidate: str) -> str:
-    """Elevate status."""
+    """Elevate status.
+    
+    Args:
+        current: The current value.
+        candidate: The candidate value.
+    
+    Returns:
+        The resulting value.
+    """
     if _status_rank(candidate) > _status_rank(current):
         return candidate
     return current
@@ -45,7 +60,14 @@ class CloudflareStatusAPICheck(BaseCheck):
     timeout_seconds = 4.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
-        """Run."""
+        """Run the entrypoint.
+        
+        Args:
+            client: The client value.
+        
+        Returns:
+            The resulting value.
+        """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
@@ -155,5 +177,9 @@ class CloudflareServiceChecker(BaseServiceChecker):
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
-        """Build checks."""
+        """Build checks.
+        
+        Returns:
+            The resulting value.
+        """
         return [CloudflareStatusAPICheck()]

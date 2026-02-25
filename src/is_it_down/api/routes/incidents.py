@@ -14,5 +14,13 @@ async def list_incidents(
     status: str = Query(default="open", pattern=r"^(open|resolved|all)$"),
     store: BigQueryApiStore = Depends(bigquery_store_dep),
 ) -> list[IncidentSummary]:
-    """List incidents."""
+    """List incidents.
+    
+    Args:
+        status: The status value.
+        store: The store value.
+    
+    Returns:
+        The resulting value.
+    """
     return await store.list_incidents(status=status)

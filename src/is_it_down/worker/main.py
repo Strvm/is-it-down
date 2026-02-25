@@ -6,7 +6,7 @@ from is_it_down.worker.service import run_worker_loop
 
 
 def main() -> None:
-    """Main."""
+    """Run the entrypoint."""
     asyncio.run(run_worker_loop())
 
 

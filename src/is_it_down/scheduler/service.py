@@ -17,12 +17,29 @@ logger = structlog.get_logger(__name__)
 
 
 def _idempotency_key(check_id: int, scheduled_for: datetime) -> str:
-    """Idempotency key."""
+    """Idempotency key.
+    
+    Args:
+        check_id: The check id value.
+        scheduled_for: The scheduled for value.
+    
+    Returns:
+        The resulting value.
+    """
     return f"{check_id}:{int(scheduled_for.timestamp())}"
 
 
 def _compute_next_due(previous_due: datetime, now: datetime, interval_seconds: int) -> datetime:
-    """Compute next due."""
+    """Compute next due.
+    
+    Args:
+        previous_due: The previous due value.
+        now: The now value.
+        interval_seconds: The interval seconds value.
+    
+    Returns:
+        The resulting value.
+    """
     next_due = previous_due
     step = timedelta(seconds=interval_seconds)
     while next_due <= now:
@@ -37,7 +54,17 @@ async def enqueue_due_checks(
     max_attempts: int,
     batch_size: int,
 ) -> int:
-    """Enqueue due checks."""
+    """Enqueue due checks.
+    
+    Args:
+        session: The session value.
+        now: The now value.
+        max_attempts: The max attempts value.
+        batch_size: The batch size value.
+    
+    Returns:
+        The resulting value.
+    """
     due_stmt = (
         select(ServiceCheck)
         .join(Service, Service.id == ServiceCheck.service_id)
@@ -82,7 +109,11 @@ async def enqueue_due_checks(
 
 
 async def run_scheduler_loop(session_factory: async_sessionmaker[AsyncSession] | None = None) -> None:
-    """Run scheduler loop."""
+    """Run scheduler loop.
+    
+    Args:
+        session_factory: The session factory value.
+    """
     settings = get_settings()
     configure_logging(settings.log_level)
 

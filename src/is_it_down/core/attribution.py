@@ -9,7 +9,15 @@ def attribute_dependency(
     service_status: ServiceStatus,
     dependency_signals: Sequence[DependencySignal],
 ) -> AttributionResult:
-    """Attribute dependency."""
+    """Attribute dependency.
+    
+    Args:
+        service_status: The service status value.
+        dependency_signals: The dependency signals value.
+    
+    Returns:
+        The resulting value.
+    """
     if service_status == "up":
         return AttributionResult(
             dependency_impacted=False,
@@ -31,7 +39,14 @@ def attribute_dependency(
         )
 
     def impact_score(signal: DependencySignal) -> float:
-        """Impact score."""
+        """Impact score.
+        
+        Args:
+            signal: The signal value.
+        
+        Returns:
+            The resulting value.
+        """
         severity_factor = 1.0 if signal.dependency_status == "down" else 0.6
         type_factor = 1.3 if signal.dependency_type == "hard" else 1.0
         return signal.weight * severity_factor * type_factor

@@ -26,7 +26,11 @@ logger = structlog.get_logger(__name__)
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Build parser."""
+    """Build parser.
+    
+    Returns:
+        The resulting value.
+    """
     parser = argparse.ArgumentParser(
         prog="is-it-down-run-scheduled-checks",
         description="Run service checkers and write results to BigQuery.",
@@ -62,7 +66,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _resolve_service_checker_classes(targets: list[str]) -> list[type[BaseServiceChecker]]:
-    """Resolve service checker classes."""
+    """Resolve service checker classes.
+    
+    Args:
+        targets: The targets value.
+    
+    Returns:
+        The resulting value.
+    """
     if targets:
         return resolve_service_checker_targets(targets)
 
@@ -77,7 +88,17 @@ def _build_bigquery_rows(
     execution_id: str | None,
     ingested_at: datetime,
 ) -> list[dict[str, Any]]:
-    """Build bigquery rows."""
+    """Build bigquery rows.
+    
+    Args:
+        runs: The runs value.
+        run_id: The run id value.
+        execution_id: The execution id value.
+        ingested_at: The ingested at value.
+    
+    Returns:
+        The resulting value.
+    """
     rows: list[dict[str, Any]] = []
     ingested_at_iso = ingested_at.isoformat()
 
@@ -110,7 +131,14 @@ def _build_bigquery_rows(
 
 
 def _insert_rows(rows: list[dict[str, Any]]) -> None:
-    """Insert rows."""
+    """Insert rows.
+    
+    Args:
+        rows: The rows value.
+    
+    Raises:
+        RuntimeError: If an error occurs while executing this function.
+    """
     if not rows:
         logger.info("checker_job.no_rows_to_insert")
         return
@@ -132,12 +160,29 @@ def _insert_rows(rows: list[dict[str, Any]]) -> None:
 
 
 def _has_non_up_result(runs: list[tuple[type[BaseServiceChecker], ServiceRunResult]]) -> bool:
-    """Has non up result."""
+    """Has non up result.
+    
+    Args:
+        runs: The runs value.
+    
+    Returns:
+        True when the condition is met; otherwise, False.
+    """
     return any(check_result.status != "up" for _, run_result in runs for check_result in run_result.check_results)
 
 
 async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
-    """Run once."""
+    """Run once.
+    
+    Args:
+        targets: The targets value.
+        strict: The strict value.
+        dry_run: The dry run value.
+    
+    Raises:
+        RuntimeError: If an error occurs while executing this function.
+        SystemExit: If an error occurs while executing this function.
+    """
     settings = get_settings()
     configure_logging(settings.log_level)
 
@@ -187,7 +232,7 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
 
 
 def main() -> None:
-    """Main."""
+    """Run the entrypoint."""
     parser = _build_parser()
     args = parser.parse_args()
 

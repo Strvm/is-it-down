@@ -18,7 +18,14 @@ from is_it_down.settings import get_settings
 
 
 def _check_result_payload(check_result: Any) -> dict[str, Any]:
-    """Check result payload."""
+    """Check result payload.
+    
+    Args:
+        check_result: The check result value.
+    
+    Returns:
+        The resulting value.
+    """
     return {
         "check_key": check_result.check_key,
         "status": check_result.status,
@@ -35,7 +42,15 @@ def _serialize_run(
     service_checker_cls: type[BaseServiceChecker],
     run_result: ServiceRunResult,
 ) -> dict[str, Any]:
-    """Serialize run."""
+    """Serialize run.
+    
+    Args:
+        service_checker_cls: The service checker cls value.
+        run_result: The run result value.
+    
+    Returns:
+        The resulting value.
+    """
     return {
         "service_key": run_result.service_key,
         "checker_class": service_checker_path(service_checker_cls),
@@ -49,7 +64,13 @@ def _print_human(
     *,
     verbose: bool,
 ) -> None:
-    """Print human."""
+    """Print human.
+    
+    Args:
+        service_checker_cls: The service checker cls value.
+        run_result: The run result value.
+        verbose: The verbose value.
+    """
     print(f"Service: {run_result.service_key} ({service_checker_path(service_checker_cls)})")
     if not run_result.check_results:
         print("  (no checks configured)\n")
@@ -84,12 +105,23 @@ def _print_human(
 
 
 def _has_non_up_result(run_result: ServiceRunResult) -> bool:
-    """Has non up result."""
+    """Has non up result.
+    
+    Args:
+        run_result: The run result value.
+    
+    Returns:
+        True when the condition is met; otherwise, False.
+    """
     return any(check_result.status != "up" for check_result in run_result.check_results)
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    """Build parser."""
+    """Build parser.
+    
+    Returns:
+        The resulting value.
+    """
     parser = argparse.ArgumentParser(
         prog="is-it-down-run-service-checker",
         description="Run service checkers locally and print results without writing to the database.",
@@ -146,7 +178,11 @@ def _print_discovered_checkers() -> None:
 
 
 def main() -> None:
-    """Main."""
+    """Run the entrypoint.
+    
+    Raises:
+        SystemExit: If an error occurs while executing this function.
+    """
     parser = _build_parser()
     args = parser.parse_args()
 

@@ -49,7 +49,7 @@ async def seed_cloudflare() -> None:
 
 
 def main() -> None:
-    """Main."""
+    """Run the entrypoint."""
     asyncio.run(seed_cloudflare())
 
 

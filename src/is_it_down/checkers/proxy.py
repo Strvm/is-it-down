@@ -21,7 +21,17 @@ class ProxyConfigurationError(RuntimeError):
 
 
 def _resolve_secret_name(proxy_setting: str) -> str:
-    """Resolve secret name."""
+    """Resolve secret name.
+    
+    Args:
+        proxy_setting: The proxy setting value.
+    
+    Returns:
+        The resulting value.
+    
+    Raises:
+        ProxyConfigurationError: If an error occurs while executing this function.
+    """
     setting = proxy_setting.strip()
     if not setting:
         raise ProxyConfigurationError("proxy_setting must be a non-empty string.")
@@ -51,13 +61,21 @@ def _resolve_secret_name(proxy_setting: str) -> str:
 
 @lru_cache
 def _authorized_session() -> AuthorizedSession:
-    """Authorized session."""
+    """Authorized session.
+    
+    Returns:
+        The resulting value.
+    """
     credentials, _ = google.auth.default(scopes=[_CLOUD_PLATFORM_SCOPE])
     return AuthorizedSession(credentials=credentials)
 
 
 def _default_proxy_url_from_settings() -> str | None:
-    """Default proxy url from settings."""
+    """Default proxy url from settings.
+    
+    Returns:
+        The resulting value.
+    """
     settings = get_settings()
     proxy_url = settings.default_checker_proxy_url
     if proxy_url is None:
@@ -68,7 +86,17 @@ def _default_proxy_url_from_settings() -> str | None:
 
 @lru_cache(maxsize=64)
 def resolve_proxy_url_for_setting_sync(proxy_setting: str) -> str:
-    """Resolve proxy url for setting sync."""
+    """Resolve proxy url for setting sync.
+    
+    Args:
+        proxy_setting: The proxy setting value.
+    
+    Returns:
+        The resulting value.
+    
+    Raises:
+        ProxyConfigurationError: If an error occurs while executing this function.
+    """
     if proxy_setting.strip() == _DEFAULT_PROXY_SETTING:
         default_proxy_url = _default_proxy_url_from_settings()
         if default_proxy_url is not None:
@@ -104,7 +132,14 @@ def resolve_proxy_url_for_setting_sync(proxy_setting: str) -> str:
 
 
 async def resolve_proxy_url_for_setting(proxy_setting: str) -> str:
-    """Resolve proxy url for setting."""
+    """Resolve proxy url for setting.
+    
+    Args:
+        proxy_setting: The proxy setting value.
+    
+    Returns:
+        The resulting value.
+    """
     return await asyncio.to_thread(resolve_proxy_url_for_setting_sync, proxy_setting)
 
 

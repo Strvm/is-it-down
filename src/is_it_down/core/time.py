@@ -4,7 +4,17 @@ from datetime import timedelta
 
 
 def parse_history_window(raw_window: str) -> timedelta:
-    """Parse history window."""
+    """Parse history window.
+    
+    Args:
+        raw_window: The raw window value.
+    
+    Returns:
+        The resulting value.
+    
+    Raises:
+        ValueError: If an error occurs while executing this function.
+    """
     unit = raw_window[-1]
     value_str = raw_window[:-1]
     if not value_str.isdigit():
