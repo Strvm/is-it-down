@@ -1,17 +1,13 @@
 name: Deploy Checker Job
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches: [main]
   release:
     types: [published]
 
 jobs:
   deploy:
-    if: |
-      github.event_name == 'release' ||
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     environment: ${{ github.event_name == 'release' && 'prod' || 'dev' }}
     permissions:
@@ -38,7 +34,21 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
-        run: terraform init -backend-config=configs/config.${{ inputs.environment }}.tfbackend
+        run: |
+          terraform -chdir="$TERRAFORM_DIR" init -input=false \
+            -backend-config="configs/config.${WORKSPACE}.tfbackend"
+
+      - name: Terraform workspace select or create
+        run: |
+          terraform -chdir="$TERRAFORM_DIR" workspace select "$WORKSPACE" || \
+          terraform -chdir="$TERRAFORM_DIR" workspace new "$WORKSPACE"
+
+      - name: Terraform bootstrap IAM for deploy SA
+        env:
+          TF_VAR_image_tag: ${{ github.sha }}
+        run: |
+          terraform -chdir="$TERRAFORM_DIR" apply -input=false -auto-approve \
+            -target=module.iam.google_project_iam_member.github_actions_permissions
 
       - name: Enable build APIs
         run: |

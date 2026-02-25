@@ -70,5 +70,5 @@ Set environment variables:
 
 ## Deployment Workflow
 
-- Merging a PR into `main` deploys to `dev` (`is-it-down-dev`).
+- Any push to `main` (including direct pushes and merged PRs) deploys to `dev` (`is-it-down-dev`).
 - Publishing a GitHub Release deploys to `prod` (`is-it-down-prod`).
