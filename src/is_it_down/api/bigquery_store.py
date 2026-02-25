@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from typing import Any
 from urllib.parse import quote
+from uuid import uuid4
 
+import structlog
 from google.cloud import bigquery
 from pydantic import BaseModel, ConfigDict
 
@@ -34,9 +36,11 @@ _SERVICE_LOOKBACK_DAYS = 7
 _INCIDENT_LOOKBACK_DAYS = 14
 _MAX_INCIDENTS = 500
 _DEPENDENCY_ALIGNMENT_WINDOW = timedelta(minutes=45)
+_SERVICE_VIEW_ORDER_WINDOW = timedelta(hours=1)
 _VALID_STATUSES: set[str] = {"up", "degraded", "down"}
 _DEFAULT_LOGO_FOREGROUND = "#0f172a"
 _DEFAULT_LOGO_BACKGROUND = "#e2e8f0"
+logger = structlog.get_logger(__name__)
 
 
 class ServiceDefinition(BaseModel):
@@ -124,6 +128,16 @@ def _fallback_service_definition(service_key: str) -> ServiceDefinition:
         description=None,
         check_weights={},
         dependencies=(),
+    )
+
+
+def _sort_service_summaries_by_views(
+    summaries: list[ServiceSummary],
+    view_counts_by_slug: dict[str, int],
+) -> list[ServiceSummary]:
+    return sorted(
+        summaries,
+        key=lambda summary: (-view_counts_by_slug.get(summary.slug, 0), summary.slug),
     )
 
 
@@ -296,6 +310,9 @@ class BigQueryApiStore:
 
         self._client = client
         self._table_id = f"{project_id}.{settings.bigquery_dataset_id}.{settings.bigquery_table_id}"
+        self._tracking_table_id = (
+            f"{project_id}.{settings.tracking_bigquery_dataset_id}.{settings.tracking_bigquery_table_id}"
+        )
 
     async def _query(
         self,
@@ -358,6 +375,67 @@ class BigQueryApiStore:
         for row in rows:
             rows_by_service[str(row["service_key"])].append(row)
         return rows_by_service
+
+    async def service_detail_view_counts_since(self, *, cutoff: datetime) -> dict[str, int]:
+        try:
+            rows = await self._query(
+                f"""
+                SELECT
+                  service_key,
+                  COUNT(1) AS view_count
+                FROM `{self._tracking_table_id}`
+                WHERE viewed_at >= @cutoff
+                GROUP BY service_key
+                """,
+                [bigquery.ScalarQueryParameter("cutoff", "TIMESTAMP", cutoff)],
+            )
+        except Exception:
+            logger.warning(
+                "api.service_detail_views_query_failed",
+                tracking_table=self._tracking_table_id,
+                cutoff=cutoff.isoformat(),
+                exc_info=True,
+            )
+            return {}
+
+        view_counts_by_slug: dict[str, int] = {}
+        for row in rows:
+            view_counts_by_slug[str(row["service_key"])] = int(row.get("view_count") or 0)
+        return view_counts_by_slug
+
+    def track_service_detail_view(
+        self,
+        *,
+        service_key: str,
+        request_path: str,
+        request_method: str,
+        user_agent: str | None,
+        referer: str | None,
+        client_ip: str | None,
+    ) -> None:
+        now = datetime.now(UTC)
+        now_iso = now.isoformat()
+        rows = [
+            {
+                "event_id": uuid4().hex,
+                "service_key": service_key,
+                "request_path": request_path,
+                "request_method": request_method,
+                "user_agent": user_agent,
+                "referer": referer,
+                "client_ip": client_ip,
+                "viewed_at": now_iso,
+                "ingested_at": now_iso,
+            }
+        ]
+        errors = self._client.insert_rows_json(self._tracking_table_id, rows)
+        if errors:
+            logger.warning(
+                "api.service_detail_view_insert_failed",
+                tracking_table=self._tracking_table_id,
+                service_key=service_key,
+                errors=errors,
+            )
 
     async def list_services(self) -> list[ServiceSummary]:
         cutoff = datetime.now(UTC) - timedelta(days=_SERVICE_LOOKBACK_DAYS)
@@ -433,7 +511,11 @@ class BigQueryApiStore:
                 )
             )
 
-        return _apply_dependency_attribution(summaries)
+        view_counts_by_slug = await self.service_detail_view_counts_since(
+            cutoff=datetime.now(UTC) - _SERVICE_VIEW_ORDER_WINDOW,
+        )
+        attributed_summaries = _apply_dependency_attribution(summaries)
+        return _sort_service_summaries_by_views(attributed_summaries, view_counts_by_slug)
 
     async def get_services_uptime(self, *, cutoff: datetime) -> list[ServiceUptimeSummary]:
         rows = await self._query(

@@ -150,7 +150,7 @@ class OpenAIApiFilesAuthCheck(BaseCheck):
 
 class OpenAIServiceChecker(BaseServiceChecker):
     service_key = "openai"
-    logo_url = "https://cdn.simpleicons.org/openai"
+    logo_url = "https://img.logo.dev/openai.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.openai.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

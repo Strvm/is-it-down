@@ -58,6 +58,14 @@ output "bigquery_table_id" {
   value = google_bigquery_table.check_results.table_id
 }
 
+output "tracking_bigquery_dataset_id" {
+  value = google_bigquery_dataset.tracking.dataset_id
+}
+
+output "tracking_bigquery_table_id" {
+  value = google_bigquery_table.service_detail_views.table_id
+}
+
 output "checker_runtime_service_account" {
   value = google_service_account.checker_runtime.email
 }
