@@ -44,7 +44,21 @@ jobs:
             --project "${{ inputs.project_id }}" \
             --tag "$IMAGE" \
             --async \
-            --format='value(metadata.build.id)')"
+            --format='value(id)')"
+
+          if [[ -z "${BUILD_ID}" ]]; then
+            echo "Build ID was empty from submit output; fetching most recent build id as fallback."
+            BUILD_ID="$(gcloud builds list \
+              --project "${{ inputs.project_id }}" \
+              --limit=1 \
+              --sort-by='~create_time' \
+              --format='value(id)')"
+          fi
+
+          if [[ -z "${BUILD_ID}" ]]; then
+            echo "Unable to determine Cloud Build ID after submit."
+            exit 1
+          fi
 
           echo "Submitted Cloud Build: ${BUILD_ID}"
 
