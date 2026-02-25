@@ -73,6 +73,9 @@ Set environment variables:
 - `IS_IT_DOWN_BIGQUERY_TABLE_ID`: defaults to `check_results`.
 - `IS_IT_DOWN_TRACKING_BIGQUERY_DATASET_ID`: defaults to `is_it_down_tracking`.
 - `IS_IT_DOWN_TRACKING_BIGQUERY_TABLE_ID`: defaults to `service_detail_views`.
+- `IS_IT_DOWN_PROXY_SECRET_PROJECT_ID`: GCP project containing checker proxy secrets.
+- `IS_IT_DOWN_DEFAULT_CHECKER_PROXY_URL`: optional direct proxy URL override for local checker runs (bypasses Secret Manager).
+- `IS_IT_DOWN_DEFAULT_CHECKER_PROXY_SECRET_ID`: default Secret Manager secret ID used by checks with `proxy_setting="default"`.
 
 ## Project Layout
 

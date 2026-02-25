@@ -11,6 +11,7 @@ import structlog
 from google.cloud import bigquery
 
 from is_it_down.checkers.base import BaseServiceChecker, ServiceRunResult
+from is_it_down.checkers.proxy import clear_proxy_resolution_cache
 from is_it_down.logging import configure_logging
 from is_it_down.scripts.run_service_checker import (
     discover_service_checkers,
@@ -48,6 +49,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Execute checks and log summary without inserting rows into BigQuery.",
+    )
+    parser.add_argument(
+        "--default-proxy-url",
+        default=None,
+        help=(
+            "Optional direct proxy URL used when checks set proxy_setting='default'. "
+            "Useful for local runs without Secret Manager access."
+        ),
     )
     return parser
 
@@ -193,6 +202,11 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
+
+    if args.default_proxy_url is not None:
+        os.environ["IS_IT_DOWN_DEFAULT_CHECKER_PROXY_URL"] = args.default_proxy_url
+        get_settings.cache_clear()
+        clear_proxy_resolution_cache()
 
     asyncio.run(_run_once(targets=args.targets, strict=args.strict, dry_run=args.dry_run))
 

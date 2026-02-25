@@ -1,4 +1,6 @@
 import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from math import isclose
 
@@ -6,6 +8,7 @@ import httpx
 import pytest
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.proxy import ProxyConfigurationError
 from is_it_down.core.models import CheckResult
 
 
@@ -33,6 +36,15 @@ class ErrorCheck(BaseCheck):
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         raise RuntimeError("boom")
+
+
+class ProxyEnabledCheck(BaseCheck):
+    check_key = "proxy_enabled"
+    endpoint_key = "example"
+    proxy_setting = "default"
+
+    async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        return CheckResult(check_key=self.check_key, status="up", observed_at=datetime.now(UTC))
 
 
 class WeightedHalfCheck(BaseCheck):
@@ -163,6 +175,53 @@ async def test_timeout_check_execute_returns_timeout() -> None:
 
     assert result.status == "down"
     assert result.error_code == "TIMEOUT"
+
+
+@pytest.mark.asyncio
+async def test_proxy_enabled_check_uses_proxy_resolver(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolved: dict[str, str] = {}
+
+    async def _fake_resolve_proxy_url(proxy_setting: str) -> str:
+        resolved["proxy_setting"] = proxy_setting
+        return "http://127.0.0.1:8080"
+
+    @asynccontextmanager
+    async def _fake_proxy_client_for_check(
+        *,
+        base_client: httpx.AsyncClient,
+        proxy_url: str,
+    ) -> AsyncIterator[httpx.AsyncClient]:
+        resolved["proxy_url"] = proxy_url
+        yield base_client
+
+    monkeypatch.setattr("is_it_down.checkers.base.resolve_proxy_url_for_setting", _fake_resolve_proxy_url)
+    monkeypatch.setattr("is_it_down.checkers.base._proxy_client_for_check", _fake_proxy_client_for_check)
+
+    check = ProxyEnabledCheck()
+    async with httpx.AsyncClient() as client:
+        result = await check.execute(client)
+
+    assert result.status == "up"
+    assert resolved == {
+        "proxy_setting": "default",
+        "proxy_url": "http://127.0.0.1:8080",
+    }
+
+
+@pytest.mark.asyncio
+async def test_proxy_misconfiguration_returns_down(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def _raise_proxy_configuration_error(proxy_setting: str) -> str:
+        raise ProxyConfigurationError(f"missing secret for {proxy_setting}")
+
+    monkeypatch.setattr("is_it_down.checkers.base.resolve_proxy_url_for_setting", _raise_proxy_configuration_error)
+
+    check = ProxyEnabledCheck()
+    async with httpx.AsyncClient() as client:
+        result = await check.execute(client)
+
+    assert result.status == "down"
+    assert result.error_code == "PROXY_CONFIGURATION_ERROR"
+    assert "missing secret" in (result.error_message or "")
 
 
 def test_resolve_check_weights_distributes_unspecified_weights() -> None:

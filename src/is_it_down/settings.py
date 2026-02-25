@@ -35,6 +35,9 @@ class Settings(BaseSettings):
 
     default_http_timeout_seconds: float = 5.0
     user_agent: str = "is-it-down/0.1.0"
+    proxy_secret_project_id: str | None = None
+    default_checker_proxy_url: str | None = None
+    default_checker_proxy_secret_id: str | None = None
 
     api_host: str = "0.0.0.0"
     api_port: int = 8080

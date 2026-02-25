@@ -6,6 +6,7 @@ resource "google_project_service" "required" {
     "cloudscheduler.googleapis.com",
     "storage.googleapis.com",
     "run.googleapis.com",
+    "secretmanager.googleapis.com",
     "cloudresourcemanager.googleapis.com",
   ])
 

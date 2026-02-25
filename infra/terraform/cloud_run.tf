@@ -105,6 +105,16 @@ resource "google_cloud_run_v2_job" "checker" {
           name  = "IS_IT_DOWN_BIGQUERY_TABLE_ID"
           value = var.bigquery_table_id
         }
+
+        env {
+          name  = "IS_IT_DOWN_PROXY_SECRET_PROJECT_ID"
+          value = var.project[terraform.workspace]
+        }
+
+        env {
+          name  = "IS_IT_DOWN_DEFAULT_CHECKER_PROXY_SECRET_ID"
+          value = var.checker_proxy_secret_id
+        }
       }
     }
   }
@@ -113,6 +123,8 @@ resource "google_cloud_run_v2_job" "checker" {
     google_project_service.required,
     google_artifact_registry_repository.checker_images,
     google_bigquery_table.check_results,
+    google_secret_manager_secret.checker_proxy,
+    google_secret_manager_secret_iam_member.checker_proxy_accessor,
     google_project_iam_member.checker_bigquery_data_editor,
     google_project_iam_member.checker_bigquery_job_user,
   ]
