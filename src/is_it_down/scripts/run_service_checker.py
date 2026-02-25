@@ -1,12 +1,14 @@
 import argparse
 import asyncio
 import json
+import os
 from collections.abc import Sequence
 from typing import Any
 
 import httpx
 
 from is_it_down.checkers.base import BaseServiceChecker, ServiceRunResult
+from is_it_down.checkers.proxy import clear_proxy_resolution_cache
 from is_it_down.checkers.registry import registry
 from is_it_down.settings import get_settings
 
@@ -171,6 +173,14 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=("Print detailed payload logs for non-up checks, including status code and response debug metadata."),
     )
+    parser.add_argument(
+        "--default-proxy-url",
+        default=None,
+        help=(
+            "Optional direct proxy URL used when checks set proxy_setting='default'. "
+            "Useful for local runs without Secret Manager access."
+        ),
+    )
     return parser
 
 
@@ -188,6 +198,11 @@ def _print_discovered_checkers() -> None:
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
+
+    if args.default_proxy_url is not None:
+        os.environ["IS_IT_DOWN_DEFAULT_CHECKER_PROXY_URL"] = args.default_proxy_url
+        get_settings.cache_clear()
+        clear_proxy_resolution_cache()
 
     if args.list:
         _print_discovered_checkers()

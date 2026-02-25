@@ -66,6 +66,10 @@ output "tracking_bigquery_table_id" {
   value = google_bigquery_table.service_detail_views.table_id
 }
 
+output "checker_proxy_secret_id" {
+  value = google_secret_manager_secret.checker_proxy.secret_id
+}
+
 output "checker_runtime_service_account" {
   value = google_service_account.checker_runtime.email
 }

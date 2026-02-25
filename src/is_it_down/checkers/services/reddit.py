@@ -21,6 +21,7 @@ class RedditStatusPageCheck(BaseCheck):
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.4
+    proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
@@ -49,6 +50,7 @@ class RedditAllHotCheck(BaseCheck):
     endpoint_key = "https://www.reddit.com/r/all/hot.json?limit=1"
     interval_seconds = 60
     timeout_seconds = 5.0
+    proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)
@@ -78,6 +80,7 @@ class RedditSubredditAboutCheck(BaseCheck):
     endpoint_key = "https://www.reddit.com/r/reddit/about.json"
     interval_seconds = 60
     timeout_seconds = 5.0
+    proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key)

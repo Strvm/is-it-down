@@ -75,6 +75,19 @@ variable "tracking_bigquery_table_id" {
   default = "service_detail_views"
 }
 
+variable "checker_proxy_secret_id" {
+  type        = string
+  default     = "checker-proxy-url"
+  description = "Secret Manager secret ID storing checker proxy URL."
+}
+
+variable "checker_proxy_secret_value" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Optional initial proxy URL secret payload. Set on first apply to provision a usable secret version."
+}
+
 variable "bigquery_location" {
   type    = string
   default = "US"

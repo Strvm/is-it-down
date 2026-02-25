@@ -111,6 +111,7 @@ class OpenAIApiModelsAuthCheck(BaseCheck):
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
+    proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key, headers={"Accept": "application/json"})
@@ -132,6 +133,7 @@ class OpenAIApiFilesAuthCheck(BaseCheck):
     endpoint_key = "https://api.openai.com/v1/files"
     interval_seconds = 60
     timeout_seconds = 5.0
+    proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         response = await client.get(self.endpoint_key, headers={"Accept": "application/json"})

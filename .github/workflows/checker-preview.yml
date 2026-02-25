@@ -46,6 +46,7 @@ jobs:
         env:
           CHANGED_FILES_JSON: ${{ steps.changed-files.outputs.files_json }}
           PYTHONPATH: ${{ github.workspace }}/src
+          IS_IT_DOWN_DEFAULT_CHECKER_PROXY_URL: ${{ secrets.PROXY_URL }}
         run: |
           uv run python src/is_it_down/scripts/pr_checker_report.py \
             --changed-files-json "$CHANGED_FILES_JSON" \

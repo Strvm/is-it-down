@@ -19,6 +19,7 @@ resource "google_project_iam_member" "github_actions_permissions" {
     "roles/vpcaccess.admin",
     "roles/serviceusage.serviceUsageAdmin",
     "roles/serviceusage.serviceUsageConsumer",
+    "roles/secretmanager.admin",
   ])
 
   project = var.project
