@@ -4,6 +4,7 @@ resource "google_project_service" "required" {
     "bigquery.googleapis.com",
     "cloudbuild.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "storage.googleapis.com",
     "run.googleapis.com",
     "cloudresourcemanager.googleapis.com",
   ])

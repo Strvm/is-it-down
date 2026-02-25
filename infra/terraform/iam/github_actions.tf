@@ -12,11 +12,13 @@ resource "google_project_iam_member" "github_actions_permissions" {
     "roles/cloudscheduler.admin",
     "roles/run.admin",
     "roles/bigquery.admin",
+    "roles/storage.admin",
     "roles/iam.serviceAccountAdmin",
     "roles/resourcemanager.projectIamAdmin",
     "roles/compute.admin",
     "roles/vpcaccess.admin",
     "roles/serviceusage.serviceUsageAdmin",
+    "roles/serviceusage.serviceUsageConsumer",
   ])
 
   project = var.project
