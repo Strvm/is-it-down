@@ -1,9 +1,12 @@
+"""Provide functionality for `is_it_down.scheduler.main`."""
+
 import asyncio
 
 from is_it_down.scheduler.service import run_scheduler_loop
 
 
 def main() -> None:
+    """Main."""
     asyncio.run(run_scheduler_loop())
 
 

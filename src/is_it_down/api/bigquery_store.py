@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.api.bigquery_store`."""
+
 from __future__ import annotations
 
 import asyncio
@@ -44,6 +46,8 @@ logger = structlog.get_logger(__name__)
 
 
 class ServiceDefinition(BaseModel):
+    """Represent `ServiceDefinition`."""
+
     model_config = ConfigDict(frozen=True)
 
     service_id: int
@@ -57,6 +61,8 @@ class ServiceDefinition(BaseModel):
 
 
 class SnapshotEvent(BaseModel):
+    """Represent `SnapshotEvent`."""
+
     model_config = ConfigDict(frozen=True)
 
     snapshot_id: int
@@ -71,21 +77,25 @@ class SnapshotEvent(BaseModel):
 
 
 def _stable_int(value: str) -> int:
+    """Stable int."""
     return int(hashlib.sha1(value.encode("utf-8")).hexdigest()[:8], 16)
 
 
 def _normalize_status(value: str | None) -> ServiceStatus:
+    """Normalize status."""
     if value in _VALID_STATUSES:
         return value
     return "up"
 
 
 def _status_severity(status: ServiceStatus) -> int:
+    """Status severity."""
     severity = {"up": 0, "degraded": 1, "down": 2}
     return severity[status]
 
 
 def _ensure_utc(dt: datetime | None) -> datetime | None:
+    """Ensure utc."""
     if dt is None:
         return None
     if dt.tzinfo is None:
@@ -97,6 +107,7 @@ def _service_name_from_checker(
     service_key: str,
     checker_cls: type[BaseServiceChecker] | None,
 ) -> str:
+    """Service name from checker."""
     if checker_cls is not None:
         class_name = checker_cls.__name__
         if class_name.endswith("ServiceChecker"):
@@ -107,6 +118,7 @@ def _service_name_from_checker(
 
 
 def _default_logo_data_uri(service_key: str) -> str:
+    """Default logo data uri."""
     label = (service_key[:2] or "?").upper()
     svg = (
         "<svg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'>"
@@ -119,6 +131,7 @@ def _default_logo_data_uri(service_key: str) -> str:
 
 
 def _fallback_service_definition(service_key: str) -> ServiceDefinition:
+    """Fallback service definition."""
     return ServiceDefinition(
         service_id=_stable_int(service_key),
         slug=service_key,
@@ -135,6 +148,7 @@ def _sort_service_summaries_by_views(
     summaries: list[ServiceSummary],
     view_counts_by_slug: dict[str, int],
 ) -> list[ServiceSummary]:
+    """Sort service summaries by views."""
     return sorted(
         summaries,
         key=lambda summary: (-view_counts_by_slug.get(summary.slug, 0), summary.slug),
@@ -143,6 +157,7 @@ def _sort_service_summaries_by_views(
 
 @lru_cache
 def discovered_service_definitions() -> dict[str, ServiceDefinition]:
+    """Discovered service definitions."""
     discovered = sorted(registry.discover_service_checkers(), key=lambda checker: checker.service_key)
     definitions: dict[str, ServiceDefinition] = {}
 
@@ -169,6 +184,7 @@ def discovered_service_definitions() -> dict[str, ServiceDefinition]:
 
 
 def _build_check_result_from_row(row: dict[str, Any]) -> CheckResult:
+    """Build check result from row."""
     observed_at = _ensure_utc(row.get("observed_at")) or datetime.now(UTC)
     status = _normalize_status(row.get("status"))
     latency_ms = row.get("latency_ms")
@@ -184,6 +200,7 @@ def _build_check_result_from_row(row: dict[str, Any]) -> CheckResult:
 
 
 def _metadata_from_json(raw: str | None) -> dict[str, Any]:
+    """Metadata from json."""
     if not raw:
         return {}
     try:
@@ -199,6 +216,7 @@ def _compute_raw_score(
     service: ServiceDefinition,
     check_rows: list[dict[str, Any]],
 ) -> tuple[float, ServiceStatus]:
+    """Compute raw score."""
     if not check_rows:
         return 100.0, "up"
 
@@ -208,6 +226,7 @@ def _compute_raw_score(
 
 
 def _health_score_from_status(status: str | None) -> float:
+    """Health score from status."""
     normalized = _normalize_status(status)
     if normalized == "up":
         return 100.0
@@ -217,6 +236,7 @@ def _health_score_from_status(status: str | None) -> float:
 
 
 def _service_definition_for_key(service_key: str) -> ServiceDefinition:
+    """Service definition for key."""
     return discovered_service_definitions().get(service_key) or _fallback_service_definition(service_key)
 
 
@@ -225,6 +245,7 @@ def _infer_dependency_attribution(
     service_summary: ServiceSummary,
     summaries_by_key: dict[str, ServiceSummary],
 ) -> tuple[bool, float, int | None]:
+    """Infer dependency attribution."""
     impacted_dependencies = _likely_related_dependencies(
         service_summary=service_summary,
         summaries_by_key=summaries_by_key,
@@ -243,6 +264,7 @@ def _infer_dependency_attribution(
 
 
 def _apply_dependency_attribution(summaries: list[ServiceSummary]) -> list[ServiceSummary]:
+    """Apply dependency attribution."""
     summaries_by_key = {summary.slug: summary for summary in summaries}
     enriched: list[ServiceSummary] = []
 
@@ -269,6 +291,7 @@ def _likely_related_dependencies(
     service_summary: ServiceSummary,
     summaries_by_key: dict[str, ServiceSummary],
 ) -> list[ServiceSummary]:
+    """Likely related dependencies."""
     if service_summary.status == "up":
         return []
 
@@ -298,11 +321,15 @@ def _likely_related_dependencies(
 
 
 def _incident_id(service_key: str, started_at: datetime) -> int:
+    """Incident id."""
     return _stable_int(f"{service_key}:{started_at.isoformat()}")
 
 
 class BigQueryApiStore:
+    """Represent `BigQueryApiStore`."""
+
     def __init__(self, client: bigquery.Client) -> None:
+        """Initialize the instance."""
         settings = get_settings()
         project_id = settings.bigquery_project_id or client.project
         if not project_id:
@@ -319,6 +346,7 @@ class BigQueryApiStore:
         query: str,
         parameters: list[bigquery.ScalarQueryParameter] | None = None,
     ) -> list[dict[str, Any]]:
+        """Query."""
         return await asyncio.to_thread(self._query_sync, query, parameters or [])
 
     def _query_sync(
@@ -326,6 +354,7 @@ class BigQueryApiStore:
         query: str,
         parameters: list[bigquery.ScalarQueryParameter],
     ) -> list[dict[str, Any]]:
+        """Query sync."""
         job_config = bigquery.QueryJobConfig(query_parameters=parameters)
         rows = self._client.query(query, job_config=job_config).result()
         return [dict(row.items()) for row in rows]
@@ -336,6 +365,7 @@ class BigQueryApiStore:
         *,
         cutoff: datetime,
     ) -> dict[str, list[dict[str, Any]]]:
+        """Latest rows for services."""
         if not service_keys:
             return {}
 
@@ -377,6 +407,7 @@ class BigQueryApiStore:
         return rows_by_service
 
     async def service_detail_view_counts_since(self, *, cutoff: datetime) -> dict[str, int]:
+        """Service detail view counts since."""
         try:
             rows = await self._query(
                 f"""
@@ -413,6 +444,7 @@ class BigQueryApiStore:
         referer: str | None,
         client_ip: str | None,
     ) -> None:
+        """Track service detail view."""
         now = datetime.now(UTC)
         now_iso = now.isoformat()
         rows = [
@@ -438,6 +470,7 @@ class BigQueryApiStore:
             )
 
     async def list_services(self) -> list[ServiceSummary]:
+        """List services."""
         cutoff = datetime.now(UTC) - timedelta(days=_SERVICE_LOOKBACK_DAYS)
         rows = await self._query(
             f"""
@@ -518,6 +551,7 @@ class BigQueryApiStore:
         return _sort_service_summaries_by_views(attributed_summaries, view_counts_by_slug)
 
     async def get_services_uptime(self, *, cutoff: datetime) -> list[ServiceUptimeSummary]:
+        """Get services uptime."""
         rows = await self._query(
             f"""
             SELECT
@@ -618,6 +652,7 @@ class BigQueryApiStore:
         return service_uptimes
 
     async def get_service_checker_trends(self, *, cutoff: datetime) -> list[ServiceCheckerTrendSummary]:
+        """Get service checker trends."""
         rows = await self._query(
             f"""
             SELECT
@@ -684,6 +719,7 @@ class BigQueryApiStore:
         *,
         cutoff: datetime,
     ) -> ServiceCheckerTrendSummary | None:
+        """Get service checker trend."""
         rows = await self._query(
             f"""
             SELECT
@@ -745,6 +781,7 @@ class BigQueryApiStore:
         )
 
     async def get_service_detail(self, slug: str) -> ServiceDetail | None:
+        """Get service detail."""
         rows = await self._query(
             f"""
             SELECT
@@ -885,6 +922,7 @@ class BigQueryApiStore:
         )
 
     async def get_service_history(self, slug: str, *, cutoff: datetime) -> list[SnapshotPoint] | None:
+        """Get service history."""
         rows = await self._query(
             f"""
             WITH filtered AS (
@@ -978,6 +1016,7 @@ class BigQueryApiStore:
         return points
 
     async def list_incidents(self, *, status: str) -> list[IncidentSummary]:
+        """List incidents."""
         cutoff = datetime.now(UTC) - timedelta(days=_INCIDENT_LOOKBACK_DAYS)
         rows = await self._query(
             f"""
@@ -1117,6 +1156,7 @@ class BigQueryApiStore:
         return all_incidents[:_MAX_INCIDENTS]
 
     async def latest_observed_at(self) -> datetime | None:
+        """Latest observed at."""
         rows = await self._query(
             f"""
             SELECT MAX(observed_at) AS observed_at
@@ -1128,6 +1168,7 @@ class BigQueryApiStore:
         return _ensure_utc(rows[0].get("observed_at"))
 
     async def snapshot_events_since(self, observed_after: datetime, limit: int = 200) -> list[SnapshotEvent]:
+        """Snapshot events since."""
         rows = await self._query(
             f"""
             WITH filtered AS (
@@ -1225,6 +1266,7 @@ class BigQueryApiStore:
 
 @lru_cache
 def get_bigquery_api_store() -> BigQueryApiStore:
+    """Get bigquery api store."""
     settings = get_settings()
     client = bigquery.Client(project=settings.bigquery_project_id or None)
     return BigQueryApiStore(client)

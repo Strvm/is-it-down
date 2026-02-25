@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.api.routes.services`."""
+
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,6 +20,7 @@ router = APIRouter(prefix="/v1/services", tags=["services"])
 
 @router.get("", response_model=list[ServiceSummary])
 async def list_services(store: BigQueryApiStore = Depends(bigquery_store_dep)) -> list[ServiceSummary]:
+    """List services."""
     return await store.list_services()
 
 
@@ -26,6 +29,7 @@ async def list_services_uptime(
     window: str = Query(default="24h", pattern=r"^[1-9][0-9]*[hdm]$"),
     store: BigQueryApiStore = Depends(bigquery_store_dep),
 ) -> list[ServiceUptimeSummary]:
+    """List services uptime."""
     cutoff = datetime.now(UTC) - parse_history_window(window)
     return await store.get_services_uptime(cutoff=cutoff)
 
@@ -35,6 +39,7 @@ async def list_service_checker_trends(
     window: str = Query(default="24h", pattern=r"^[1-9][0-9]*[hdm]$"),
     store: BigQueryApiStore = Depends(bigquery_store_dep),
 ) -> list[ServiceCheckerTrendSummary]:
+    """List service checker trends."""
     cutoff = datetime.now(UTC) - parse_history_window(window)
     return await store.get_service_checker_trends(cutoff=cutoff)
 
@@ -45,6 +50,7 @@ async def get_service_checker_trend(
     window: str = Query(default="24h", pattern=r"^[1-9][0-9]*[hdm]$"),
     store: BigQueryApiStore = Depends(bigquery_store_dep),
 ) -> ServiceCheckerTrendSummary:
+    """Get service checker trend."""
     cutoff = datetime.now(UTC) - parse_history_window(window)
     trend = await store.get_service_checker_trend(slug, cutoff=cutoff)
     if trend is None:
@@ -54,6 +60,7 @@ async def get_service_checker_trend(
 
 @router.get("/{slug}", response_model=ServiceDetail)
 async def get_service_detail(slug: str, store: BigQueryApiStore = Depends(bigquery_store_dep)) -> ServiceDetail:
+    """Get service detail."""
     detail = await store.get_service_detail(slug)
     if detail is None:
         raise HTTPException(status_code=404, detail="Service not found")
@@ -66,6 +73,7 @@ async def get_service_history(
     window: str = Query(default="24h", pattern=r"^[1-9][0-9]*[hdm]$"),
     store: BigQueryApiStore = Depends(bigquery_store_dep),
 ) -> list[SnapshotPoint]:
+    """Get service history."""
     cutoff = datetime.now(UTC) - parse_history_window(window)
     points = await store.get_service_history(slug, cutoff=cutoff)
     if points is None:

@@ -65,6 +65,12 @@ uv run is-it-down-run-scheduled-checks cloudflare github --strict
 uv run is-it-down-run-scheduled-checks --dry-run
 ```
 
+Baseline runtime measurement (local):
+
+```bash
+time uv run is-it-down-run-scheduled-checks --dry-run
+```
+
 Set environment variables:
 
 - `IS_IT_DOWN_ENV`: `local`, `development`, or `production`.

@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.gitlab`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -7,23 +9,16 @@ import httpx
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
+    json_list_or_none,
     response_latency_ms,
     status_from_http,
 )
 from is_it_down.core.models import CheckResult
 
 
-def _json_list(response: httpx.Response) -> list[Any] | None:
-    try:
-        payload = response.json()
-    except ValueError:
-        return None
-    if not isinstance(payload, list):
-        return None
-    return payload
-
-
 class GitLabStatusPageCheck(BaseCheck):
+    """Represent `GitLabStatusPageCheck`."""
+
     check_key = "gitlab_status_page"
     endpoint_key = "https://status.gitlab.com/"
     interval_seconds = 60
@@ -31,6 +26,7 @@ class GitLabStatusPageCheck(BaseCheck):
     weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
         page_text = response.text.lower()
@@ -69,6 +65,8 @@ class GitLabStatusPageCheck(BaseCheck):
 
 
 class GitLabPublicProjectsCheck(BaseCheck):
+    """Represent `GitLabPublicProjectsCheck`."""
+
     check_key = "gitlab_public_projects"
     endpoint_key = "https://gitlab.com/api/v4/projects?per_page=1&simple=true"
     interval_seconds = 60
@@ -76,12 +74,13 @@ class GitLabPublicProjectsCheck(BaseCheck):
     weight = 0.35
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
         if response.is_success:
-            payload = _json_list(response)
+            payload = json_list_or_none(response)
             if payload is None:
                 status = "degraded"
                 metadata["projects_payload_present"] = False
@@ -115,12 +114,15 @@ class GitLabPublicProjectsCheck(BaseCheck):
 
 
 class GitLabHelpPageCheck(BaseCheck):
+    """Represent `GitLabHelpPageCheck`."""
+
     check_key = "gitlab_help_page"
     endpoint_key = "https://gitlab.com/help"
     interval_seconds = 60
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -148,12 +150,15 @@ class GitLabHelpPageCheck(BaseCheck):
 
 
 class GitLabServiceChecker(BaseServiceChecker):
+    """Represent `GitLabServiceChecker`."""
+
     service_key = "gitlab"
     logo_url = "https://cdn.simpleicons.org/gitlab"
     official_uptime = "https://status.gitlab.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks."""
         return [
             GitLabStatusPageCheck(),
             GitLabPublicProjectsCheck(),

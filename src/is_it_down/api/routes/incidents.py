@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.api.routes.incidents`."""
+
 from fastapi import APIRouter, Depends, Query
 
 from is_it_down.api.bigquery_store import BigQueryApiStore
@@ -12,4 +14,5 @@ async def list_incidents(
     status: str = Query(default="open", pattern=r"^(open|resolved|all)$"),
     store: BigQueryApiStore = Depends(bigquery_store_dep),
 ) -> list[IncidentSummary]:
+    """List incidents."""
     return await store.list_incidents(status=status)

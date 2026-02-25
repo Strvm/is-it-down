@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.logging`."""
+
 import logging
 import sys
 
@@ -5,6 +7,7 @@ import structlog
 
 
 def configure_logging(level: str = "INFO") -> None:
+    """Configure logging."""
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,

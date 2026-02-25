@@ -1,7 +1,10 @@
+"""Provide functionality for `is_it_down.core.time`."""
+
 from datetime import timedelta
 
 
 def parse_history_window(raw_window: str) -> timedelta:
+    """Parse history window."""
     unit = raw_window[-1]
     value_str = raw_window[:-1]
     if not value_str.isdigit():

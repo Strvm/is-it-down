@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.api.routes.stream`."""
+
 import asyncio
 import json
 from datetime import UTC, datetime
@@ -12,6 +14,7 @@ router = APIRouter(prefix="/v1", tags=["stream"])
 
 
 def _snapshot_to_event(snapshot: SnapshotEvent) -> dict[str, Any]:
+    """Snapshot to event."""
     return {
         "snapshot_id": snapshot.snapshot_id,
         "service_id": snapshot.service_id,
@@ -27,7 +30,9 @@ def _snapshot_to_event(snapshot: SnapshotEvent) -> dict[str, Any]:
 
 @router.get("/stream")
 async def stream_updates() -> StreamingResponse:
+    """Stream updates."""
     async def event_generator() -> Any:
+        """Event generator."""
         store = get_bigquery_api_store()
         last_seen = await store.latest_observed_at()
         if last_seen is None:

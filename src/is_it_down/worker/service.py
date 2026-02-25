@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.worker.service`."""
+
 import asyncio
 from collections import defaultdict
 from datetime import UTC, datetime
@@ -31,12 +33,15 @@ logger = structlog.get_logger(__name__)
 
 
 class ClaimedJob(BaseModel):
+    """Represent `ClaimedJob`."""
+
     id: int
     service_id: int
     check_id: int
 
 
 def _severity_rank(status: str) -> int:
+    """Severity rank."""
     mapping = {"up": 0, "degraded": 1, "down": 2}
     return mapping.get(status, 0)
 
@@ -45,6 +50,7 @@ async def _latest_service_check_results(
     session: AsyncSession,
     service_id: int,
 ) -> tuple[list[CheckResult], dict[str, float]]:
+    """Latest service check results."""
     latest_runs = (
         select(
             CheckRun.check_id.label("check_id"),
@@ -111,6 +117,7 @@ async def _latest_service_check_results(
 
 
 async def _dependency_signals(session: AsyncSession, service_id: int) -> list[DependencySignal]:
+    """Dependency signals."""
     latest_snapshots = select(
         ServiceSnapshot.service_id.label("service_id"),
         ServiceSnapshot.status.label("status"),
@@ -162,6 +169,7 @@ async def _sync_incident_state(
     probable_root_service_id: int | None,
     confidence: float,
 ) -> None:
+    """Sync incident state."""
     open_incident_stmt = (
         select(Incident)
         .where(Incident.service_id == service_id)
@@ -228,6 +236,7 @@ async def _recompute_service_snapshot(
     service_id: int,
     observed_at: datetime,
 ) -> None:
+    """Recompute service snapshot."""
     check_results, weights_by_check = await _latest_service_check_results(session, service_id)
 
     raw_score = weighted_service_score(check_results, weights_by_check)
@@ -273,6 +282,7 @@ async def _process_claimed_job(
     per_service_semaphores: dict[int, asyncio.Semaphore],
     global_semaphore: asyncio.Semaphore,
 ) -> None:
+    """Process claimed job."""
     service_semaphore = per_service_semaphores[claimed_job.service_id]
 
     async with global_semaphore, service_semaphore:
@@ -339,6 +349,7 @@ async def _process_claimed_job(
 
 
 def _default_worker_id() -> str:
+    """Default worker id."""
     return f"{gethostname()}-{uuid4().hex[:12]}"
 
 
@@ -352,6 +363,7 @@ async def run_worker_batch(
     per_service_semaphores: dict[int, asyncio.Semaphore] | None = None,
     global_semaphore: asyncio.Semaphore | None = None,
 ) -> int:
+    """Run worker batch."""
     settings = get_settings()
 
     if session_factory is None:
@@ -408,6 +420,7 @@ async def run_worker_batch(
 
 
 async def run_worker_loop(session_factory: async_sessionmaker[AsyncSession] | None = None) -> None:
+    """Run worker loop."""
     settings = get_settings()
     configure_logging(settings.log_level)
 

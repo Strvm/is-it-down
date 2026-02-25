@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.scripts.pr_checker_report`."""
+
 import argparse
 import asyncio
 import importlib
@@ -12,6 +14,7 @@ import httpx
 from pydantic import BaseModel
 
 from is_it_down.checkers.base import BaseServiceChecker
+from is_it_down.scripts.checker_runtime import service_checker_path
 from is_it_down.settings import get_settings
 
 COMMENT_MARKER = "<!-- is-it-down-checker-results -->"
@@ -19,6 +22,8 @@ SERVICE_CHECKER_FILE_RE = re.compile(r"^src/is_it_down/checkers/services/(?P<mod
 
 
 class CheckerExecutionResult(BaseModel):
+    """Represent `CheckerExecutionResult`."""
+
     service_key: str
     checker_class: str
     official_uptime: str | None
@@ -29,6 +34,7 @@ class CheckerExecutionResult(BaseModel):
 
 
 def changed_service_checker_modules(changed_files: list[str]) -> list[str]:
+    """Changed service checker modules."""
     modules: set[str] = set()
     for changed_file in changed_files:
         match = SERVICE_CHECKER_FILE_RE.match(changed_file)
@@ -41,11 +47,8 @@ def changed_service_checker_modules(changed_files: list[str]) -> list[str]:
     return sorted(modules)
 
 
-def _service_checker_path(service_checker_cls: type[BaseServiceChecker]) -> str:
-    return f"{service_checker_cls.__module__}.{service_checker_cls.__name__}"
-
-
 def _dependency_service_keys_safe(checker: BaseServiceChecker) -> list[str]:
+    """Dependency service keys safe."""
     try:
         return checker.dependency_service_keys()
     except Exception:
@@ -61,12 +64,14 @@ def _dependency_service_keys_safe(checker: BaseServiceChecker) -> list[str]:
 
 
 def _service_module_path(module_name: str) -> str:
+    """Service module path."""
     return f"is_it_down.checkers.services.{module_name}"
 
 
 def _discover_service_checkers_for_module(
     module_name: str,
 ) -> tuple[list[type[BaseServiceChecker]], str | None]:
+    """Discover service checkers for module."""
     module_path = _service_module_path(module_name)
 
     try:
@@ -92,6 +97,7 @@ def _discover_service_checkers_for_module(
 def selected_service_checker_classes(
     changed_files: list[str],
 ) -> list[tuple[str, type[BaseServiceChecker]]]:
+    """Selected service checker classes."""
     selected, _ = selected_service_checker_classes_with_errors(changed_files)
     return selected
 
@@ -99,6 +105,7 @@ def selected_service_checker_classes(
 def selected_service_checker_classes_with_errors(
     changed_files: list[str],
 ) -> tuple[list[tuple[str, type[BaseServiceChecker]]], dict[str, str]]:
+    """Selected service checker classes with errors."""
     modules = changed_service_checker_modules(changed_files)
 
     selected: list[tuple[str, type[BaseServiceChecker]]] = []
@@ -117,6 +124,7 @@ def selected_service_checker_classes_with_errors(
 async def run_selected_service_checkers(
     selected: list[tuple[str, type[BaseServiceChecker]]],
 ) -> list[CheckerExecutionResult]:
+    """Run selected service checkers."""
     settings = get_settings()
     timeout = httpx.Timeout(settings.default_http_timeout_seconds)
 
@@ -128,7 +136,7 @@ async def run_selected_service_checkers(
         results: list[CheckerExecutionResult] = []
         for changed_module, checker_cls in selected:
             checker = checker_cls()
-            checker_path = _service_checker_path(checker_cls)
+            checker_path = service_checker_path(checker_cls)
 
             try:
                 run_result = await checker.run_all(client)
@@ -174,6 +182,7 @@ async def run_selected_service_checkers(
 
 
 def _status_summary(run_result: CheckerExecutionResult) -> str:
+    """Status summary."""
     counts = {"up": 0, "degraded": 0, "down": 0}
     for check in run_result.checks:
         status = check.get("status")
@@ -192,6 +201,7 @@ def render_comment_markdown(
     verbose: bool = False,
     module_errors: Mapping[str, str] | None = None,
 ) -> str:
+    """Render comment markdown."""
     lines: list[str] = [COMMENT_MARKER, "## Service Checker Preview"]
 
     generated_at = datetime.now(UTC).isoformat()
@@ -280,6 +290,7 @@ def render_comment_markdown(
 
 
 def _parse_args() -> argparse.Namespace:
+    """Parse args."""
     parser = argparse.ArgumentParser(
         description=(
             "Run added/modified service checkers for a PR and render a markdown comment body with checker results."
@@ -297,6 +308,7 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Main."""
     args = _parse_args()
     changed_files = json.loads(args.changed_files_json)
     if not isinstance(changed_files, list) or not all(isinstance(item, str) for item in changed_files):

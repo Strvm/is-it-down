@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.destiny`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -11,6 +13,8 @@ from is_it_down.core.models import CheckResult, ServiceStatus
 
 
 class _BungiePlatformCheck(BaseCheck):
+    """Represent `_BungiePlatformCheck`."""
+
     def _score_response(
         self,
         response: httpx.Response,
@@ -18,6 +22,7 @@ class _BungiePlatformCheck(BaseCheck):
         *,
         expected_response_type: type,
     ) -> tuple[ServiceStatus, dict[str, Any]]:
+        """Score response."""
         status_code = response.status_code
 
         metadata: dict[str, Any] = {
@@ -70,6 +75,7 @@ class _BungiePlatformCheck(BaseCheck):
         return "up", metadata
 
     def _parse_payload(self, response: httpx.Response) -> dict[str, Any] | None:
+        """Parse payload."""
         try:
             data = response.json()
         except ValueError:
@@ -81,6 +87,8 @@ class _BungiePlatformCheck(BaseCheck):
 
 
 class DestinyManifestCheck(_BungiePlatformCheck):
+    """Represent `DestinyManifestCheck`."""
+
     check_key = "destiny_manifest"
     endpoint_key = "https://www.bungie.net/Platform/Destiny2/Manifest/"
     interval_seconds = 60
@@ -88,6 +96,7 @@ class DestinyManifestCheck(_BungiePlatformCheck):
     weight = 0.5
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         payload = self._parse_payload(response)
 
@@ -113,12 +122,15 @@ class DestinyManifestCheck(_BungiePlatformCheck):
 
 
 class DestinyGlobalAlertsCheck(_BungiePlatformCheck):
+    """Represent `DestinyGlobalAlertsCheck`."""
+
     check_key = "destiny_global_alerts"
     endpoint_key = "https://www.bungie.net/Platform/GlobalAlerts/?includestreaming=false"
     interval_seconds = 60
     timeout_seconds = 6.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         payload = self._parse_payload(response)
 
@@ -143,12 +155,15 @@ class DestinyGlobalAlertsCheck(_BungiePlatformCheck):
 
 
 class DestinyClanBannerDictionaryCheck(_BungiePlatformCheck):
+    """Represent `DestinyClanBannerDictionaryCheck`."""
+
     check_key = "destiny_clan_banner_dictionary"
     endpoint_key = "https://www.bungie.net/Platform/Destiny2/Clan/ClanBannerDictionary/"
     interval_seconds = 60
     timeout_seconds = 6.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         payload = self._parse_payload(response)
 
@@ -173,12 +188,15 @@ class DestinyClanBannerDictionaryCheck(_BungiePlatformCheck):
 
 
 class DestinyServiceChecker(BaseServiceChecker):
+    """Represent `DestinyServiceChecker`."""
+
     service_key = "destiny"
     logo_url = "https://cdn.simpleicons.org/bungie"
     official_uptime = "https://help.bungie.net/hc/en-us/articles/360049199271-Destiny-Server-and-Update-Status"
     dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks."""
         return [
             DestinyManifestCheck(),
             DestinyGlobalAlertsCheck(),

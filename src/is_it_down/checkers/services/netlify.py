@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.netlify`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -8,23 +10,16 @@ from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
+    json_dict_or_none,
     response_latency_ms,
     status_from_http,
 )
 from is_it_down.core.models import CheckResult
 
 
-def _json_dict(response: httpx.Response) -> dict[str, Any] | None:
-    try:
-        payload = response.json()
-    except ValueError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    return payload
-
-
 class NetlifyStatusPageCheck(BaseCheck):
+    """Represent `NetlifyStatusPageCheck`."""
+
     check_key = "netlify_status_page"
     endpoint_key = "https://www.netlifystatus.com/api/v2/status.json"
     interval_seconds = 60
@@ -32,12 +27,13 @@ class NetlifyStatusPageCheck(BaseCheck):
     weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
         if response.is_success:
-            payload = _json_dict(response)
+            payload = json_dict_or_none(response)
             if payload is None:
                 status = "degraded"
             else:
@@ -75,6 +71,8 @@ class NetlifyStatusPageCheck(BaseCheck):
 
 
 class NetlifyApiAuthCheck(BaseCheck):
+    """Represent `NetlifyApiAuthCheck`."""
+
     check_key = "netlify_api_auth"
     endpoint_key = "https://api.netlify.com/api/v1/sites"
     interval_seconds = 60
@@ -82,13 +80,14 @@ class NetlifyApiAuthCheck(BaseCheck):
     weight = 0.35
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key, headers={"Accept": "application/json"})
         status = status_from_http(response)
         metadata: dict[str, Any] = {"expected_http_statuses": [401, 403]}
 
         if response.status_code in {401, 403}:
             status = "up"
-            payload = _json_dict(response)
+            payload = json_dict_or_none(response)
             if payload is None:
                 metadata["error_payload_present"] = False
             else:
@@ -114,12 +113,15 @@ class NetlifyApiAuthCheck(BaseCheck):
 
 
 class NetlifyHomepageCheck(BaseCheck):
+    """Represent `NetlifyHomepageCheck`."""
+
     check_key = "netlify_homepage"
     endpoint_key = "https://www.netlify.com/"
     interval_seconds = 60
     timeout_seconds = 5.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -148,12 +150,15 @@ class NetlifyHomepageCheck(BaseCheck):
 
 
 class NetlifyServiceChecker(BaseServiceChecker):
+    """Represent `NetlifyServiceChecker`."""
+
     service_key = "netlify"
     logo_url = "https://cdn.simpleicons.org/netlify"
     official_uptime = "https://www.netlifystatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks."""
         return [
             NetlifyStatusPageCheck(),
             NetlifyApiAuthCheck(),

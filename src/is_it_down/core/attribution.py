@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.core.attribution`."""
+
 from collections.abc import Sequence
 
 from is_it_down.core.models import AttributionResult, DependencySignal, ServiceStatus
@@ -7,6 +9,7 @@ def attribute_dependency(
     service_status: ServiceStatus,
     dependency_signals: Sequence[DependencySignal],
 ) -> AttributionResult:
+    """Attribute dependency."""
     if service_status == "up":
         return AttributionResult(
             dependency_impacted=False,
@@ -28,6 +31,7 @@ def attribute_dependency(
         )
 
     def impact_score(signal: DependencySignal) -> float:
+        """Impact score."""
         severity_factor = 1.0 if signal.dependency_status == "down" else 0.6
         type_factor = 1.3 if signal.dependency_type == "hard" else 1.0
         return signal.weight * severity_factor * type_factor

@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.cloudflare`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -8,6 +10,7 @@ from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
+    json_dict_or_none,
     response_latency_ms,
     status_from_http,
 )
@@ -22,38 +25,33 @@ _NON_OPERATIONAL_COMPONENT_STATUSES = {
 
 
 def _status_rank(status: str) -> int:
+    """Status rank."""
     return {"up": 0, "degraded": 1, "down": 2}.get(status, 0)
 
 
 def _elevate_status(current: str, candidate: str) -> str:
+    """Elevate status."""
     if _status_rank(candidate) > _status_rank(current):
         return candidate
     return current
 
 
-def _json_dict(response: httpx.Response) -> dict[str, Any] | None:
-    try:
-        payload = response.json()
-    except ValueError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    return payload
-
-
 class CloudflareStatusAPICheck(BaseCheck):
+    """Represent `CloudflareStatusAPICheck`."""
+
     check_key = "cloudflare_status_api"
     endpoint_key = "https://www.cloudflarestatus.com/api/v2/summary.json"
     interval_seconds = 60
     timeout_seconds = 4.0
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
         if response.is_success:
-            payload = _json_dict(response)
+            payload = json_dict_or_none(response)
             if payload is None:
                 status = "degraded"
                 metadata["summary_payload_present"] = False
@@ -149,10 +147,13 @@ class CloudflareStatusAPICheck(BaseCheck):
 
 
 class CloudflareServiceChecker(BaseServiceChecker):
+    """Represent `CloudflareServiceChecker`."""
+
     service_key = "cloudflare"
     logo_url = "https://cdn.simpleicons.org/cloudflare"
     official_uptime = "https://www.cloudflarestatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks."""
         return [CloudflareStatusAPICheck()]

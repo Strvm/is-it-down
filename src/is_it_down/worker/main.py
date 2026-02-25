@@ -1,9 +1,12 @@
+"""Provide functionality for `is_it_down.worker.main`."""
+
 import asyncio
 
 from is_it_down.worker.service import run_worker_loop
 
 
 def main() -> None:
+    """Main."""
     asyncio.run(run_worker_loop())
 
 

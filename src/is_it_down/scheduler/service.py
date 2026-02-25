@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.scheduler.service`."""
+
 import asyncio
 from datetime import UTC, datetime, timedelta
 
@@ -15,10 +17,12 @@ logger = structlog.get_logger(__name__)
 
 
 def _idempotency_key(check_id: int, scheduled_for: datetime) -> str:
+    """Idempotency key."""
     return f"{check_id}:{int(scheduled_for.timestamp())}"
 
 
 def _compute_next_due(previous_due: datetime, now: datetime, interval_seconds: int) -> datetime:
+    """Compute next due."""
     next_due = previous_due
     step = timedelta(seconds=interval_seconds)
     while next_due <= now:
@@ -33,6 +37,7 @@ async def enqueue_due_checks(
     max_attempts: int,
     batch_size: int,
 ) -> int:
+    """Enqueue due checks."""
     due_stmt = (
         select(ServiceCheck)
         .join(Service, Service.id == ServiceCheck.service_id)
@@ -77,6 +82,7 @@ async def enqueue_due_checks(
 
 
 async def run_scheduler_loop(session_factory: async_sessionmaker[AsyncSession] | None = None) -> None:
+    """Run scheduler loop."""
     settings = get_settings()
     configure_logging(settings.log_level)
 

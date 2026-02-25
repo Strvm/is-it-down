@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.checkers.services.twilio`."""
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -8,23 +10,16 @@ from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
+    json_dict_or_none,
     response_latency_ms,
     status_from_http,
 )
 from is_it_down.core.models import CheckResult
 
 
-def _json_dict(response: httpx.Response) -> dict[str, Any] | None:
-    try:
-        payload = response.json()
-    except ValueError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    return payload
-
-
 class TwilioStatusPageCheck(BaseCheck):
+    """Represent `TwilioStatusPageCheck`."""
+
     check_key = "twilio_status_page"
     endpoint_key = "https://status.twilio.com/api/v2/status.json"
     interval_seconds = 60
@@ -32,12 +27,13 @@ class TwilioStatusPageCheck(BaseCheck):
     weight = 0.4
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
         if response.is_success:
-            payload = _json_dict(response)
+            payload = json_dict_or_none(response)
             if payload is None:
                 status = "degraded"
             else:
@@ -75,6 +71,8 @@ class TwilioStatusPageCheck(BaseCheck):
 
 
 class TwilioApiAuthCheck(BaseCheck):
+    """Represent `TwilioApiAuthCheck`."""
+
     check_key = "twilio_api_auth"
     endpoint_key = "https://api.twilio.com/2010-04-01/Accounts.json"
     interval_seconds = 60
@@ -83,6 +81,7 @@ class TwilioApiAuthCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -110,6 +109,8 @@ class TwilioApiAuthCheck(BaseCheck):
 
 
 class TwilioDocsCheck(BaseCheck):
+    """Represent `TwilioDocsCheck`."""
+
     check_key = "twilio_docs"
     endpoint_key = "https://www.twilio.com/docs"
     interval_seconds = 60
@@ -117,6 +118,7 @@ class TwilioDocsCheck(BaseCheck):
     proxy_setting = "default"
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
+        """Run."""
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
 
@@ -142,12 +144,15 @@ class TwilioDocsCheck(BaseCheck):
 
 
 class TwilioServiceChecker(BaseServiceChecker):
+    """Represent `TwilioServiceChecker`."""
+
     service_key = "twilio"
     logo_url = "https://img.logo.dev/twilio.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.twilio.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
+        """Build checks."""
         return [
             TwilioStatusPageCheck(),
             TwilioApiAuthCheck(),

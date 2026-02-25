@@ -1,3 +1,5 @@
+"""Provide functionality for `is_it_down.api.service_tracking_middleware`."""
+
 from fastapi import FastAPI, Request, Response
 from starlette.background import BackgroundTask, BackgroundTasks
 
@@ -8,6 +10,7 @@ _NON_DETAIL_SEGMENTS = frozenset({"uptime", "checker-trends"})
 
 
 def _service_slug_from_path(path: str) -> str | None:
+    """Service slug from path."""
     parts = tuple(part for part in path.split("/") if part)
     if len(parts) != 3:
         return None
@@ -20,6 +23,7 @@ def _service_slug_from_path(path: str) -> str | None:
 
 
 def _resolve_client_ip(request: Request) -> str | None:
+    """Resolve client ip."""
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
         return forwarded_for.split(",")[0].strip() or None
@@ -29,6 +33,7 @@ def _resolve_client_ip(request: Request) -> str | None:
 
 
 def _append_background_task(response: Response, task: BackgroundTask) -> None:
+    """Append background task."""
     if response.background is None:
         response.background = task
         return
@@ -40,8 +45,11 @@ def _append_background_task(response: Response, task: BackgroundTask) -> None:
 
 
 def register_service_detail_tracking_middleware(app: FastAPI) -> None:
+    """Register service detail tracking middleware."""
+
     @app.middleware("http")
     async def service_detail_tracking_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+        """Service detail tracking middleware."""
         response = await call_next(request)
 
         if request.method != "GET" or response.status_code >= 400:
