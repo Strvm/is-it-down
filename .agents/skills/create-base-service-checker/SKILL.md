@@ -14,10 +14,11 @@ Create new service checker modules that match this repository's checker architec
 - Set `service_key`.
 - Set `official_uptime` to the official status page URL when available.
 - Set `dependencies` as `Sequence[type[BaseServiceChecker]]` using checker class references (not strings).
-3. Define a MINIMUN 3 (or more) `BaseCheck` subclasses:
+3. Define a MINIMUN 5 (or more) `BaseCheck` subclasses:
 - Search only for valid endpoint(s) that would reflect well the service's health. Avoid redundant checks.
 - Set `check_key`, `endpoint_key`, `interval_seconds`, `timeout_seconds`.
 - Set `weight` only when needed. Keep unspecified weights as `None`.
+- Make sure to link dependencies when creating a new service (e.g if the new service has as dependency CloudFlare make sure to include the CloudFlare service as dependency, etc..)
 
 ## Follow Weight Rules
 

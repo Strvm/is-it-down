@@ -1,28 +1,74 @@
 # is-it-down
 
-`is-it-down` is an open-source, backend-first service health platform inspired by outage trackers, but driven by direct API checks instead of crowdsourced reports.
+`is-it-down` is an open-source service health platform that uses direct endpoint checks (not crowdsourced reports) to determine service status.
 
-## Goals
+It is designed to be easy to extend: if you want to add a new service checker, improve reliability signals, or improve API/UI output, this repo is built for that workflow.
 
-- Run async endpoint checks for many services at high cadence.
-- Persist raw check outcomes for analysis.
-- Keep deployment simple with Cloud Run Jobs + BigQuery.
+## Why Contribute
 
-## Runtime
+- Add support for more services.
+- Improve checker quality (fewer false positives / false negatives).
+- Improve status attribution for dependency-driven incidents.
+- Improve the FastAPI backend and Next.js dashboard experience.
 
-- `checker-job`: runs service checkers on a schedule and writes rows to BigQuery.
-- `api`: FastAPI service serving status data from BigQuery.
-- `web`: Next.js 16 dashboard UI in `web/` consuming the FastAPI service.
+## Architecture At A Glance
 
-## Local Development
+```text
+Service Checkers -> BigQuery -> FastAPI API -> Next.js Web App
+```
+
+Runtime components:
+
+- `checker-job`: runs service checkers and writes check rows to BigQuery.
+- `api`: FastAPI service that serves status and incident data.
+- `web`: Next.js 16 app in `web/` that consumes the API.
+
+## Quick Start (Backend)
+
+Prerequisites:
+
+- Python `3.13+`
+- [`uv`](https://docs.astral.sh/uv/)
+
+Install deps and run core validation:
 
 ```bash
 uv sync --extra dev
+uv run --extra dev ruff check .
+uv run --extra dev pytest
+```
+
+List and run checkers locally (no BigQuery writes):
+
+```bash
 uv run is-it-down-run-service-checker --list
+uv run is-it-down-run-service-checker cloudflare
+uv run is-it-down-run-service-checker cloudflare --json
+```
+
+Run scheduled checks with BigQuery writes disabled:
+
+```bash
 uv run is-it-down-run-scheduled-checks --dry-run
 ```
 
-## Frontend Development
+## Run API Locally
+
+```bash
+uv run is-it-down-api
+```
+
+Health endpoint:
+
+```bash
+curl http://localhost:8080/healthz
+```
+
+## Quick Start (Frontend)
+
+Prerequisites:
+
+- `bun` (project uses `bun@1.2.16`)
 
 ```bash
 cd web
@@ -31,73 +77,96 @@ cp .env.example .env.local
 bun dev
 ```
 
-The frontend reads from:
+Frontend env vars:
 
-- `API_BASE_URL` (server-side fetches)
-- `NEXT_PUBLIC_API_BASE_URL` (client visibility/debug)
+- `API_BASE_URL`: server-side fetch base URL.
+- `NEXT_PUBLIC_API_BASE_URL`: client-side API base URL.
 
-## Run Service Checkers Without BigQuery Writes
+## Common Contributor Workflows
+
+### Add or Improve a Service Checker
+
+1. Create/update checker module(s) in `src/is_it_down/checkers/services/`.
+2. Keep checks focused and independent (status page + API + web edge checks is a common pattern).
+3. Make sure non-up results include debug metadata.
+4. Validate with:
 
 ```bash
-# list available service checker keys
+uv run --extra dev ruff check .
+uv run --extra dev pytest
 uv run is-it-down-run-service-checker --list
-
-# run by service key
-uv run is-it-down-run-service-checker cloudflare
-
-# run by class path and return JSON
-uv run is-it-down-run-service-checker is_it_down.checkers.services.cloudflare.CloudflareServiceChecker --json
+uv run is-it-down-run-service-checker <service_key> --json
+uv run is-it-down-run-service-checker <service_key> --verbose
 ```
 
-## Run Scheduled Checks (BigQuery Sink)
+### Backend Changes (API / Core / Worker)
+
+Use this pre-PR pass:
 
 ```bash
-uv run is-it-down-run-scheduled-checks
+uv run --extra dev ruff check .
+uv run --extra dev pytest
 ```
 
-Optional:
+### Frontend Changes
 
 ```bash
-# run only selected checkers and fail non-zero if any check is non-up
-uv run is-it-down-run-scheduled-checks cloudflare github --strict
-
-# execute checks but skip BigQuery insert
-uv run is-it-down-run-scheduled-checks --dry-run
+cd web
+bun run lint
+bun run build
 ```
 
-Baseline runtime measurement (local):
+## Environment Variables
 
-```bash
-time uv run is-it-down-run-scheduled-checks --dry-run
-```
-
-Set environment variables:
+Most local contributor workflows only need defaults, but these are commonly used:
 
 - `IS_IT_DOWN_ENV`: `local`, `development`, or `production`.
-- `IS_IT_DOWN_BIGQUERY_PROJECT_ID`: GCP project for BigQuery writes (optional if ADC project is set).
-- `IS_IT_DOWN_BIGQUERY_DATASET_ID`: defaults to `is_it_down`.
-- `IS_IT_DOWN_BIGQUERY_TABLE_ID`: defaults to `check_results`.
-- `IS_IT_DOWN_TRACKING_BIGQUERY_DATASET_ID`: defaults to `is_it_down_tracking`.
-- `IS_IT_DOWN_TRACKING_BIGQUERY_TABLE_ID`: defaults to `service_detail_views`.
+- `IS_IT_DOWN_DEFAULT_CHECKER_PROXY_URL`: local proxy override for checks that use `proxy_setting="default"`.
 - `IS_IT_DOWN_PROXY_SECRET_PROJECT_ID`: GCP project containing checker proxy secrets.
-- `IS_IT_DOWN_DEFAULT_CHECKER_PROXY_URL`: optional direct proxy URL override for local checker runs (bypasses Secret Manager).
-- `IS_IT_DOWN_DEFAULT_CHECKER_PROXY_SECRET_ID`: default Secret Manager secret ID used by checks with `proxy_setting="default"`.
+- `IS_IT_DOWN_DEFAULT_CHECKER_PROXY_SECRET_ID`: default proxy secret ID.
+
+BigQuery settings (for non-dry-run scheduled checks / API integrations):
+
+- `IS_IT_DOWN_BIGQUERY_PROJECT_ID`
+- `IS_IT_DOWN_BIGQUERY_DATASET_ID` (default: `is_it_down`)
+- `IS_IT_DOWN_BIGQUERY_TABLE_ID` (default: `check_results`)
+- `IS_IT_DOWN_TRACKING_BIGQUERY_DATASET_ID` (default: `is_it_down_tracking`)
+- `IS_IT_DOWN_TRACKING_BIGQUERY_TABLE_ID` (default: `service_detail_views`)
 
 ## Project Layout
 
-- `src/is_it_down/checkers`: async checker framework + service checks.
-- `src/is_it_down/scripts/run_service_checker.py`: ad-hoc checker runner.
-- `src/is_it_down/scripts/run_scheduled_checks.py`: Cloud Run Job entrypoint writing to BigQuery.
-- `infra/terraform`: Cloud Run Job, Cloud Scheduler trigger, BigQuery dataset/table.
-- `.github/workflows/deploy.yml`: image build + Terraform deploy.
+- `src/is_it_down/checkers`: checker framework, utilities, and service checkers.
+- `src/is_it_down/api`: FastAPI routes and API infrastructure.
+- `src/is_it_down/core`: scoring, attribution, and shared domain models.
+- `src/is_it_down/scripts/run_service_checker.py`: local ad-hoc checker runner.
+- `src/is_it_down/scripts/run_scheduled_checks.py`: checker job entrypoint.
+- `web/`: Next.js dashboard.
+- `infra/terraform`: Cloud Run + Cloud Scheduler + BigQuery infra.
 
-## GitHub Secrets
+## CI and Deployment
 
-- `GCP_SA_KEY` (create this secret in each GitHub Environment: `dev` and `prod`)
+CI (`.github/workflows/ci.yml`) runs:
 
-## Deployment Workflow
+- `ruff check src tests`
+- `pytest -q`
 
-- Any push to `main` (including direct pushes and merged PRs) deploys to `dev` (`is-it-down-dev`).
-- Publishing a GitHub Release deploys to `prod` (`is-it-down-prod`).
-- CI builds and pushes three images (`checker`, `api`, `web`) tagged with the commit SHA.
-- Terraform applies the same tag to Cloud Run Job + Cloud Run Services.
+Deployment summary:
+
+- Push to `main` deploys `dev` (`is-it-down-dev`).
+- GitHub Release deploys `prod` (`is-it-down-prod`).
+- Images built/pushed: `checker`, `api`, `web`.
+- Terraform applies the image tag to Cloud Run resources.
+
+Required GitHub secret for deploy workflows:
+
+- `GCP_SA_KEY` (configured per GitHub Environment, e.g. `dev` and `prod`).
+
+## Contributing Expectations
+
+- Prefer small, focused PRs.
+- Include tests when behavior changes.
+- Keep checker logic defensive against partial/malformed payloads.
+- Run lint + tests before opening a PR.
+- If adding a new checker, include enough metadata/debug info to make production triage easy.
+
+If you are new to the codebase, a great first contribution is improving one service checker's signal quality and adding regression tests for that behavior.
