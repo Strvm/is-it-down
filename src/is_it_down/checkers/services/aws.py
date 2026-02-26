@@ -1,16 +1,15 @@
-"""Provide functionality for `is_it_down.checkers.services.digitalocean`."""
+"""Provide functionality for `is_it_down.checkers.services.aws`."""
 
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
+from xml.etree import ElementTree
 
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
-from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
-    apply_statuspage_indicator,
     json_dict_or_none,
     response_latency_ms,
     status_from_http,
@@ -18,11 +17,11 @@ from is_it_down.checkers.utils import (
 from is_it_down.core.models import CheckResult
 
 
-class DigitalOceanStatusPageCheck(BaseCheck):
-    """Represent `DigitalOceanStatusPageCheck`."""
+class AwsStatusRssCheck(BaseCheck):
+    """Represent `AwsStatusRssCheck`."""
 
-    check_key = "digitalocean_status_page"
-    endpoint_key = "https://status.digitalocean.com/api/v2/status.json"
+    check_key = "aws_status_rss"
+    endpoint_key = "https://status.aws.amazon.com/rss/all.rss"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.4
@@ -38,34 +37,30 @@ class DigitalOceanStatusPageCheck(BaseCheck):
         """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
-        metadata: dict[str, Any] = {}
+        metadata: dict[str, Any] = {
+            "content_type": response.headers.get("content-type", ""),
+        }
 
         if response.is_success:
-            payload = json_dict_or_none(response)
-            if payload is None:
+            try:
+                root = ElementTree.fromstring(response.text)
+            except ElementTree.ParseError:
                 status = "degraded"
+                metadata["rss_parse_error"] = True
             else:
-                status_block = payload.get("status")
-                indicator: str | None = None
-                description: str | None = None
-
-                if isinstance(status_block, dict):
-                    raw_indicator = status_block.get("indicator")
-                    raw_description = status_block.get("description")
-                    if isinstance(raw_indicator, str):
-                        indicator = raw_indicator
-                    if isinstance(raw_description, str):
-                        description = raw_description
+                channel = root.find("channel")
+                if channel is None:
+                    status = "degraded"
+                    metadata["channel_present"] = False
                 else:
-                    status = "degraded"
+                    metadata["channel_present"] = True
+                    title = channel.findtext("title")
+                    metadata["title"] = title
+                    items = channel.findall("item")
+                    metadata["item_count"] = len(items)
+                    if not isinstance(title, str) or not title.strip():
+                        status = "degraded"
 
-                metadata["indicator"] = indicator
-                if description is not None:
-                    metadata["description"] = description
-
-                status = apply_statuspage_indicator(status, indicator)
-                if indicator is None:
-                    status = "degraded"
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
         return CheckResult(
@@ -78,11 +73,11 @@ class DigitalOceanStatusPageCheck(BaseCheck):
         )
 
 
-class DigitalOceanApiAccountCheck(BaseCheck):
-    """Represent `DigitalOceanApiAccountCheck`."""
+class AwsStsAuthCheck(BaseCheck):
+    """Represent `AwsStsAuthCheck`."""
 
-    check_key = "digitalocean_api_account"
-    endpoint_key = "https://api.digitalocean.com/v2/account"
+    check_key = "aws_sts_auth"
+    endpoint_key = "https://sts.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -98,21 +93,23 @@ class DigitalOceanApiAccountCheck(BaseCheck):
         """
         response = await client.get(self.endpoint_key, headers={"Accept": "application/json"})
         status = status_from_http(response)
-        metadata: dict[str, Any] = {"expected_http_statuses": [401, 403]}
+        metadata: dict[str, Any] = {
+            "expected_http_statuses": [403],
+            "content_type": response.headers.get("content-type", ""),
+        }
 
-        if response.status_code in {401, 403}:
+        if response.status_code == 403:
             status = "up"
             payload = json_dict_or_none(response)
             if payload is None:
                 metadata["error_payload_present"] = False
             else:
                 metadata["error_payload_present"] = True
-                error_id = payload.get("id")
-                error_message = payload.get("message")
-                if isinstance(error_id, str):
-                    metadata["error_id"] = error_id
-                if isinstance(error_message, str):
-                    metadata["error_message"] = error_message
+                error = payload.get("Error")
+                metadata["error_block_present"] = isinstance(error, dict)
+                if isinstance(error, dict):
+                    metadata["error_code"] = error.get("Code")
+                    metadata["error_message"] = error.get("Message")
         elif response.is_success:
             status = "degraded"
             metadata["unexpected_success"] = True
@@ -129,11 +126,11 @@ class DigitalOceanApiAccountCheck(BaseCheck):
         )
 
 
-class DigitalOceanControlPanelCheck(BaseCheck):
-    """Represent `DigitalOceanControlPanelCheck`."""
+class AwsHomepageCheck(BaseCheck):
+    """Represent `AwsHomepageCheck`."""
 
-    check_key = "digitalocean_control_panel"
-    endpoint_key = "https://cloud.digitalocean.com/"
+    check_key = "aws_homepage"
+    endpoint_key = "https://aws.amazon.com/"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -174,13 +171,13 @@ class DigitalOceanControlPanelCheck(BaseCheck):
         )
 
 
-class DigitalOceanServiceChecker(BaseServiceChecker):
-    """Represent `DigitalOceanServiceChecker`."""
+class AwsServiceChecker(BaseServiceChecker):
+    """Represent `AwsServiceChecker`."""
 
-    service_key = "digitalocean"
-    logo_url = "https://cdn.simpleicons.org/digitalocean"
-    official_uptime = "https://status.digitalocean.com/"
-    dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
+    service_key = "aws"
+    logo_url = "https://cdn.simpleicons.org/amazonwebservices"
+    official_uptime = "https://status.aws.amazon.com/"
+    dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
         """Build checks.
@@ -189,7 +186,7 @@ class DigitalOceanServiceChecker(BaseServiceChecker):
             The resulting value.
         """
         return [
-            DigitalOceanStatusPageCheck(),
-            DigitalOceanApiAccountCheck(),
-            DigitalOceanControlPanelCheck(),
+            AwsStatusRssCheck(),
+            AwsStsAuthCheck(),
+            AwsHomepageCheck(),
         ]

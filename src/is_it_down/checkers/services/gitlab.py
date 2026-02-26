@@ -8,6 +8,8 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.services.aws import AwsServiceChecker
+from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     json_list_or_none,
@@ -224,7 +226,7 @@ class GitLabServiceChecker(BaseServiceChecker):
     service_key = "gitlab"
     logo_url = "https://cdn.simpleicons.org/gitlab"
     official_uptime = "https://status.gitlab.com/"
-    dependencies: Sequence[type[BaseServiceChecker]] = ()
+    dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker, AwsServiceChecker)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         """Build checks.

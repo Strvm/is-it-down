@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.services.aws import AwsServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
@@ -179,7 +180,7 @@ class AtlassianServiceChecker(BaseServiceChecker):
     service_key = "atlassian"
     logo_url = "https://cdn.simpleicons.org/atlassian"
     official_uptime = "https://status.atlassian.com/"
-    dependencies: Sequence[type[BaseServiceChecker]] = ()
+    dependencies: Sequence[type[BaseServiceChecker]] = (AwsServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         """Build checks.
