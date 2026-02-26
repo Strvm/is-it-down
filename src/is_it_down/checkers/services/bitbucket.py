@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.services.atlassian import AtlassianServiceChecker
-from is_it_down.checkers.services.statuspage_common import (
+from is_it_down.checkers.statuspage_common import (
     ApiAuthResponseCheck,
     HtmlMarkerCheck,
     StatuspageStatusCheck,

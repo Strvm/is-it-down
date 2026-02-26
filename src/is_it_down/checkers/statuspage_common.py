@@ -1,4 +1,4 @@
-"""Provide functionality for `is_it_down.checkers.services.statuspage_common`."""
+"""Provide functionality for `is_it_down.checkers.statuspage_common`."""
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
