@@ -30,6 +30,14 @@ from is_it_down.api.schemas import (
 )
 from is_it_down.checkers.base import BaseServiceChecker
 from is_it_down.checkers.registry import registry
+from is_it_down.core.granularity import (
+    check_score_from_status,
+    derive_check_status_detail,
+    derive_service_status_detail,
+    score_band_from_score,
+    severity_level_from_check,
+    severity_level_from_score,
+)
 from is_it_down.core.models import CheckResult, ServiceStatus
 from is_it_down.core.scoring import status_from_score, weighted_service_score
 from is_it_down.settings import get_settings
@@ -69,6 +77,9 @@ class SnapshotEvent(BaseModel):
     service_id: int
     observed_at: datetime
     status: ServiceStatus
+    status_detail: str | None = None
+    severity_level: int | None = None
+    score_band: str | None = None
     raw_score: float
     effective_score: float
     dependency_impacted: bool
@@ -268,7 +279,7 @@ def _build_check_result_from_row(row: dict[str, Any]) -> CheckResult:
     )
 
 
-def _metadata_from_json(raw: str | None) -> dict[str, Any]:
+def _metadata_from_json(raw: Any) -> dict[str, Any]:
     """Metadata from json.
     
     Args:
@@ -277,6 +288,8 @@ def _metadata_from_json(raw: str | None) -> dict[str, Any]:
     Returns:
         The resulting value.
     """
+    if isinstance(raw, dict):
+        return raw
     if not raw:
         return {}
     try:
@@ -286,6 +299,76 @@ def _metadata_from_json(raw: str | None) -> dict[str, Any]:
     if isinstance(parsed, dict):
         return parsed
     return {}
+
+
+def _check_granularity_from_row(row: dict[str, Any]) -> tuple[str, int, str]:
+    """Return granular check fields (detail, severity, score band) for a row.
+
+    Args:
+        row: BigQuery row for a single check.
+
+    Returns:
+        The resulting value.
+    """
+    status = _normalize_status(row.get("status"))
+    latency_ms = int(row["latency_ms"]) if row.get("latency_ms") is not None else None
+    http_status = int(row["http_status"]) if row.get("http_status") is not None else None
+    error_code = row.get("error_code")
+    metadata = _metadata_from_json(row.get("metadata_json"))
+
+    raw_detail = metadata.get("status_detail")
+    if isinstance(raw_detail, str) and raw_detail.strip():
+        status_detail = raw_detail
+    else:
+        status_detail = derive_check_status_detail(
+            status=status,
+            http_status=http_status,
+            latency_ms=latency_ms,
+            error_code=error_code if isinstance(error_code, str) else None,
+            metadata=metadata,
+        )
+
+    raw_severity = metadata.get("severity_level")
+    if isinstance(raw_severity, (int, float)) and not isinstance(raw_severity, bool):
+        severity_level = int(raw_severity)
+    else:
+        severity_level = severity_level_from_check(status, status_detail)
+
+    raw_score_band = metadata.get("score_band")
+    if isinstance(raw_score_band, str) and raw_score_band.strip():
+        score_band = raw_score_band
+    else:
+        score_band = score_band_from_score(check_score_from_status(status, latency_ms))
+
+    return status_detail, severity_level, score_band
+
+
+def _service_granularity_from_rows(
+    *,
+    status: ServiceStatus,
+    raw_score: float,
+    check_rows: list[dict[str, Any]],
+    dependency_impacted: bool = False,
+) -> tuple[str, int, str]:
+    """Return granular service fields (detail, severity, score band).
+
+    Args:
+        status: Canonical service status.
+        raw_score: Service raw health score.
+        check_rows: Latest check rows for the service.
+        dependency_impacted: Whether dependency attribution applies.
+
+    Returns:
+        The resulting value.
+    """
+    check_details = [_check_granularity_from_row(row)[0] for row in check_rows]
+    status_detail = derive_service_status_detail(
+        status=status,
+        raw_score=raw_score,
+        check_details=check_details,
+        dependency_impacted=dependency_impacted,
+    )
+    return status_detail, severity_level_from_score(raw_score), score_band_from_score(raw_score)
 
 
 def _compute_raw_score(
@@ -386,12 +469,19 @@ def _apply_dependency_attribution(summaries: list[ServiceSummary]) -> list[Servi
             service_summary=summary,
             summaries_by_key=summaries_by_key,
         )
+        status_detail = derive_service_status_detail(
+            status=summary.status,
+            raw_score=summary.raw_score,
+            check_details=[summary.status_detail or ""],
+            dependency_impacted=dependency_impacted,
+        )
         enriched.append(
             summary.model_copy(
                 update={
                     "dependency_impacted": dependency_impacted,
                     "attribution_confidence": attribution_confidence,
                     "probable_root_service_id": probable_root_service_id,
+                    "status_detail": status_detail,
                 }
             )
         )
@@ -708,6 +798,11 @@ class BigQueryApiStore:
                 )
 
             raw_score, status = _compute_raw_score(definition, check_rows)
+            status_detail, severity_level, score_band = _service_granularity_from_rows(
+                status=status,
+                raw_score=raw_score,
+                check_rows=check_rows,
+            )
             summaries.append(
                 ServiceSummary(
                     service_id=definition.service_id,
@@ -715,6 +810,9 @@ class BigQueryApiStore:
                     name=definition.name,
                     logo_url=definition.logo_url,
                     status=status,
+                    status_detail=status_detail,
+                    severity_level=severity_level,
+                    score_band=score_band,
                     raw_score=raw_score,
                     effective_score=raw_score,
                     observed_at=observed_at,
@@ -1034,6 +1132,11 @@ class BigQueryApiStore:
         now = datetime.now(UTC)
         observed_at = max((_ensure_utc(row.get("observed_at")) or now for row in rows), default=now)
         raw_score, status = _compute_raw_score(definition, rows)
+        snapshot_status_detail, snapshot_severity_level, snapshot_score_band = _service_granularity_from_rows(
+            status=status,
+            raw_score=raw_score,
+            check_rows=rows,
+        )
 
         snapshot = ServiceSummary(
             service_id=definition.service_id,
@@ -1041,6 +1144,9 @@ class BigQueryApiStore:
             name=definition.name,
             logo_url=definition.logo_url,
             status=status,
+            status_detail=snapshot_status_detail,
+            severity_level=snapshot_severity_level,
+            score_band=snapshot_score_band,
             raw_score=raw_score,
             effective_score=raw_score,
             observed_at=observed_at,
@@ -1064,12 +1170,24 @@ class BigQueryApiStore:
                         default=now,
                     )
                 dependency_raw_score, dependency_status = _compute_raw_score(dependency_definition, dependency_rows)
+                (
+                    dependency_status_detail,
+                    dependency_severity_level,
+                    dependency_score_band,
+                ) = _service_granularity_from_rows(
+                    status=dependency_status,
+                    raw_score=dependency_raw_score,
+                    check_rows=dependency_rows,
+                )
                 dependency_summaries[dependency_key] = ServiceSummary(
                     service_id=dependency_definition.service_id,
                     slug=dependency_definition.slug,
                     name=dependency_definition.name,
                     logo_url=dependency_definition.logo_url,
                     status=dependency_status,
+                    status_detail=dependency_status_detail,
+                    severity_level=dependency_severity_level,
+                    score_band=dependency_score_band,
                     raw_score=dependency_raw_score,
                     effective_score=dependency_raw_score,
                     observed_at=dependency_observed_at,
@@ -1087,6 +1205,12 @@ class BigQueryApiStore:
                 "dependency_impacted": dependency_impacted,
                 "attribution_confidence": attribution_confidence,
                 "probable_root_service_id": probable_root_service_id,
+                "status_detail": derive_service_status_detail(
+                    status=snapshot.status,
+                    raw_score=snapshot.raw_score,
+                    check_details=[snapshot.status_detail or ""],
+                    dependency_impacted=dependency_impacted,
+                ),
             }
         )
         likely_related_services = [
@@ -1105,10 +1229,14 @@ class BigQueryApiStore:
 
         latest_checks: list[CheckRunSummary] = []
         for row in rows:
+            status_detail, severity_level, score_band = _check_granularity_from_row(row)
             latest_checks.append(
                 CheckRunSummary(
                     check_key=str(row["check_key"]),
                     status=_normalize_status(row.get("status")),
+                    status_detail=status_detail,
+                    severity_level=severity_level,
+                    score_band=score_band,
                     observed_at=_ensure_utc(row.get("observed_at")) or now,
                     latency_ms=int(row["latency_ms"]) if row.get("latency_ms") is not None else None,
                     http_status=int(row["http_status"]) if row.get("http_status") is not None else None,
@@ -1220,10 +1348,18 @@ class BigQueryApiStore:
         ):
             observed_at = run_observed_at.get(run_id, datetime.now(UTC))
             raw_score, status = _compute_raw_score(definition, check_rows)
+            status_detail, severity_level, score_band = _service_granularity_from_rows(
+                status=status,
+                raw_score=raw_score,
+                check_rows=check_rows,
+            )
             points.append(
                 SnapshotPoint(
                     observed_at=observed_at,
                     status=status,
+                    status_detail=status_detail,
+                    severity_level=severity_level,
+                    score_band=score_band,
                     raw_score=raw_score,
                     effective_score=raw_score,
                     dependency_impacted=False,
@@ -1482,12 +1618,20 @@ class BigQueryApiStore:
             definition = _service_definition_for_key(service_key)
             observed_at = run_observed_at.get(key, datetime.now(UTC))
             raw_score, snapshot_status = _compute_raw_score(definition, check_rows)
+            status_detail, severity_level, score_band = _service_granularity_from_rows(
+                status=snapshot_status,
+                raw_score=raw_score,
+                check_rows=check_rows,
+            )
             events.append(
                 SnapshotEvent(
                     snapshot_id=_stable_int(f"{service_key}:{run_id}"),
                     service_id=definition.service_id,
                     observed_at=observed_at,
                     status=snapshot_status,
+                    status_detail=status_detail,
+                    severity_level=severity_level,
+                    score_band=score_band,
                     raw_score=raw_score,
                     effective_score=raw_score,
                     dependency_impacted=False,

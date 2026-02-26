@@ -5,9 +5,11 @@ import { ArrowLeft } from "lucide-react";
 import { ServiceDetailAnalytics } from "@/components/service-detail-analytics";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getServiceCheckerTrend, getServiceDetail, getServiceHistory, isApiError } from "@/lib/api";
+import { formatSignalLabel, scoreBandTone } from "@/lib/status-granularity";
 
 type Props = {
   params: Promise<{
@@ -51,7 +53,9 @@ export default async function ServiceDetailPage({ params }: Props) {
               loading="lazy"
             />
             <h1 className="text-3xl font-bold tracking-tight">{detail.name}</h1>
-            <StatusBadge status={detail.snapshot.status} />
+            <Badge variant={scoreBandTone(detail.snapshot.score_band)}>
+              {formatSignalLabel(detail.snapshot.score_band || detail.snapshot.status)}
+            </Badge>
           </div>
           {detail.description ? (
             <p className="text-sm text-slate-600">{detail.description}</p>
@@ -81,7 +85,7 @@ export default async function ServiceDetailPage({ params }: Props) {
         </Button>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="fade-in-up">
           <CardHeader>
             <CardDescription>Health score</CardDescription>
@@ -91,6 +95,15 @@ export default async function ServiceDetailPage({ params }: Props) {
           </CardHeader>
         </Card>
         <Card className="fade-in-up">
+          <CardHeader>
+            <CardDescription>Current signal</CardDescription>
+            <CardTitle className="text-base">{formatSignalLabel(detail.snapshot.status_detail)}</CardTitle>
+            <CardDescription>
+              Severity {detail.snapshot.severity_level ?? "-"} • {formatSignalLabel(detail.snapshot.score_band)}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card className="fade-in-up sm:col-span-2 xl:col-span-1">
           <CardHeader>
             <CardDescription>Likely cause</CardDescription>
             <CardTitle className="text-base">

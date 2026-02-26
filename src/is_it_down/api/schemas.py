@@ -14,6 +14,9 @@ class ServiceSummary(BaseModel):
     name: str
     logo_url: str
     status: Literal["up", "degraded", "down"]
+    status_detail: str | None = None
+    severity_level: int | None = None
+    score_band: str | None = None
     raw_score: float
     effective_score: float
     observed_at: datetime
@@ -27,6 +30,9 @@ class CheckRunSummary(BaseModel):
 
     check_key: str
     status: Literal["up", "degraded", "down"]
+    status_detail: str | None = None
+    severity_level: int | None = None
+    score_band: str | None = None
     observed_at: datetime
     latency_ms: int | None = None
     http_status: int | None = None
@@ -64,6 +70,9 @@ class SnapshotPoint(BaseModel):
 
     observed_at: datetime
     status: Literal["up", "degraded", "down"]
+    status_detail: str | None = None
+    severity_level: int | None = None
+    score_band: str | None = None
     raw_score: float
     effective_score: float
     dependency_impacted: bool

@@ -1,4 +1,11 @@
 export type ServiceStatus = "up" | "degraded" | "down";
+export type ScoreBand =
+  | "excellent"
+  | "healthy"
+  | "minor_issues"
+  | "degraded"
+  | "major_issues"
+  | "critical";
 
 export type ServiceSummary = {
   service_id: number;
@@ -6,6 +13,9 @@ export type ServiceSummary = {
   name: string;
   logo_url: string;
   status: ServiceStatus;
+  status_detail?: string | null;
+  severity_level?: number | null;
+  score_band?: ScoreBand | string | null;
   raw_score: number;
   effective_score: number;
   observed_at: string;
@@ -17,6 +27,9 @@ export type ServiceSummary = {
 export type CheckRunSummary = {
   check_key: string;
   status: ServiceStatus;
+  status_detail?: string | null;
+  severity_level?: number | null;
+  score_band?: ScoreBand | string | null;
   observed_at: string;
   latency_ms: number | null;
   http_status: number | null;
@@ -48,6 +61,9 @@ export type ServiceDetail = {
 export type SnapshotPoint = {
   observed_at: string;
   status: ServiceStatus;
+  status_detail?: string | null;
+  severity_level?: number | null;
+  score_band?: ScoreBand | string | null;
   raw_score: number;
   effective_score: number;
   dependency_impacted: boolean;

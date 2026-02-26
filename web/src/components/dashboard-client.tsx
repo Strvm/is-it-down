@@ -5,11 +5,12 @@ import { useMemo, useState } from "react";
 import { Activity, AlertTriangle, Search } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
-import { StatusBadge } from "@/components/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatSignalLabel, scoreBandTone } from "@/lib/status-granularity";
 import type {
   IncidentSummary,
   ServiceCheckerTrendSummary,
@@ -181,6 +182,8 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
 
   const counters = serviceCounters(filteredServices);
   const openIncidents = filteredIncidents.filter((incident) => incident.status === "open").length;
+  const criticalSignals = filteredServices.filter((service) => (service.severity_level ?? 0) >= 4).length;
+  const dependencySignals = filteredServices.filter((service) => service.dependency_impacted).length;
 
   return (
     <main className="grid-glow relative mx-auto flex w-full max-w-[96rem] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -216,7 +219,7 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
         </CardContent>
       </Card>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Card className="fade-in-up">
           <CardHeader>
             <CardDescription>Visible services</CardDescription>
@@ -239,6 +242,18 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
           <CardHeader>
             <CardDescription>Open incidents</CardDescription>
             <CardTitle className="text-3xl">{openIncidents}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="fade-in-up">
+          <CardHeader>
+            <CardDescription>Critical signals</CardDescription>
+            <CardTitle className="text-3xl text-rose-700">{criticalSignals}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="fade-in-up">
+          <CardHeader>
+            <CardDescription>Dependency-impacted</CardDescription>
+            <CardTitle className="text-3xl text-sky-700">{dependencySignals}</CardTitle>
           </CardHeader>
         </Card>
       </section>
@@ -291,11 +306,20 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
                         loading="lazy"
                       />
                       <span className="truncate">{serviceTrend.name}</span>
-                      {summary ? <StatusBadge status={summary.status} /> : null}
+                      {summary ? (
+                        <Badge variant={scoreBandTone(summary.score_band)}>
+                          {formatSignalLabel(summary.score_band || summary.status)}
+                        </Badge>
+                      ) : null}
                     </CardTitle>
                     <CardDescription>
                       24h checker uptime lines ({serviceTrend.slug}).
                     </CardDescription>
+                    {summary ? (
+                      <CardDescription>
+                        Severity {summary.severity_level ?? "-"} • {formatSignalLabel(summary.status_detail)}
+                      </CardDescription>
+                    ) : null}
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col">
                     {checkKeys.length === 0 || chartRows.length === 0 ? (

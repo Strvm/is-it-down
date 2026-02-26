@@ -155,6 +155,9 @@ async def test_success_check_execute() -> None:
     async with httpx.AsyncClient() as client:
         result = await check.execute(client)
     assert result.status == "up"
+    assert result.metadata["status_detail"] == "operational"
+    assert result.metadata["severity_level"] == 0
+    assert result.metadata["score_band"] == "excellent"
 
 
 @pytest.mark.asyncio
@@ -175,6 +178,9 @@ async def test_timeout_check_execute_returns_timeout() -> None:
 
     assert result.status == "down"
     assert result.error_code == "TIMEOUT"
+    assert result.metadata["status_detail"] == "timeout"
+    assert result.metadata["severity_level"] == 5
+    assert result.metadata["score_band"] == "critical"
 
 
 @pytest.mark.asyncio

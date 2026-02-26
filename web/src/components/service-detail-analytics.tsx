@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { Activity, ChartLine, ShieldCheck, TrendingDown } from "lucide-react";
+import { Activity, AlertTriangle, ChartLine, ShieldCheck, TrendingDown } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { formatSignalLabel } from "@/lib/status-granularity";
 import type { ServiceCheckerTrendSummary, SnapshotPoint } from "@/lib/types";
 
 type Props = {
@@ -18,6 +19,8 @@ type ScoreTimelinePoint = {
   label: string;
   score: number;
   status: SnapshotPoint["status"];
+  statusDetail: SnapshotPoint["status_detail"];
+  severityLevel: SnapshotPoint["severity_level"];
 };
 
 type CheckerSeries = {
@@ -141,6 +144,8 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
         label: formatShortTime(point.observed_at),
         score: point.effective_score,
         status: point.status,
+        statusDetail: point.status_detail ?? null,
+        severityLevel: point.severity_level ?? null,
       })),
     [history],
   );
@@ -153,16 +158,27 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
         upRate: 0,
         lowestScore: null as { score: number; observedAt: string } | null,
         statusCounts: { up: 0, degraded: 0, down: 0 },
+        detailCounts: {} as Record<string, number>,
+        maxSeverity: null as number | null,
       };
     }
 
     const statusCounts = { up: 0, degraded: 0, down: 0 };
+    const detailCounts: Record<string, number> = {};
     let sum = 0;
+    let maxSeverity: number | null = null;
     let lowest = { score: timelinePoints[0].score, observedAt: timelinePoints[0].observed_at };
 
     for (const point of timelinePoints) {
       sum += point.score;
       statusCounts[point.status] += 1;
+      const detailKey = point.statusDetail || point.status;
+      detailCounts[detailKey] = (detailCounts[detailKey] ?? 0) + 1;
+      if (point.severityLevel !== null && point.severityLevel !== undefined) {
+        if (maxSeverity === null || point.severityLevel > maxSeverity) {
+          maxSeverity = point.severityLevel;
+        }
+      }
       if (point.score < lowest.score) {
         lowest = { score: point.score, observedAt: point.observed_at };
       }
@@ -174,8 +190,14 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
       upRate: (statusCounts.up / timelinePoints.length) * 100,
       lowestScore: lowest,
       statusCounts,
+      detailCounts,
+      maxSeverity,
     };
   }, [timelinePoints]);
+  const topDetailSignals = useMemo(
+    () => Object.entries(timelineSummary.detailCounts).sort((left, right) => right[1] - left[1]).slice(0, 5),
+    [timelineSummary.detailCounts],
+  );
 
   const checkerKeys = useMemo(
     () => Array.from(new Set(checkerTrend.points.map((point) => point.check_key))).sort(),
@@ -200,7 +222,7 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
 
   return (
     <section className="space-y-6">
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Card className="fade-in-up">
           <CardHeader>
             <CardDescription className="inline-flex items-center gap-1.5">
@@ -242,6 +264,17 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
                 ? formatShortDateTime(timelineSummary.lowestScore.observedAt)
                 : "No score samples yet"}
             </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card className="fade-in-up">
+          <CardHeader>
+            <CardDescription className="inline-flex items-center gap-1.5">
+              <AlertTriangle className="size-4 text-orange-700" />
+              Peak severity
+            </CardDescription>
+            <CardTitle className="text-3xl tabular-nums">
+              {timelineSummary.maxSeverity !== null ? timelineSummary.maxSeverity : "-"}
+            </CardTitle>
           </CardHeader>
         </Card>
       </section>
@@ -319,6 +352,30 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
                 </div>
               );
             })}
+            <div className="mt-5 border-t border-slate-200 pt-4">
+              <p className="mb-2 text-xs font-semibold tracking-wide text-slate-600 uppercase">
+                Top granular signals
+              </p>
+              {topDetailSignals.length === 0 ? (
+                <p className="text-sm text-slate-600">No granular signal points available.</p>
+              ) : (
+                <div className="space-y-2">
+                  {topDetailSignals.map(([detail, count]) => {
+                    const percent = timelineSummary.sampleCount
+                      ? (count / timelineSummary.sampleCount) * 100
+                      : 0;
+                    return (
+                      <div key={detail} className="flex items-center justify-between text-sm">
+                        <p>{formatSignalLabel(detail)}</p>
+                        <p className="tabular-nums text-slate-600">
+                          {count} ({percent.toFixed(1)}%)
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </section>

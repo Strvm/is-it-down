@@ -13,7 +13,13 @@ import httpx
 from pydantic import BaseModel
 
 from is_it_down.checkers.proxy import ProxyConfigurationError, resolve_proxy_url_for_setting
+from is_it_down.core.granularity import (
+    derive_check_status_detail,
+    score_band_from_score,
+    severity_level_from_check,
+)
 from is_it_down.core.models import CheckResult
+from is_it_down.core.scoring import check_result_score
 
 
 class ServiceRunResult(BaseModel):
@@ -79,31 +85,63 @@ class BaseCheck(ABC):
                 result.check_key = self.check_key
             if not result.observed_at:
                 result.observed_at = observed_at
-            return result
+            return _enrich_check_result_metadata(result)
         except ProxyConfigurationError as exc:
-            return CheckResult(
-                check_key=self.check_key,
-                status="down",
-                observed_at=observed_at,
-                error_code="PROXY_CONFIGURATION_ERROR",
-                error_message=str(exc),
+            return _enrich_check_result_metadata(
+                CheckResult(
+                    check_key=self.check_key,
+                    status="down",
+                    observed_at=observed_at,
+                    error_code="PROXY_CONFIGURATION_ERROR",
+                    error_message=str(exc),
+                )
             )
         except TimeoutError:
-            return CheckResult(
-                check_key=self.check_key,
-                status="down",
-                observed_at=observed_at,
-                error_code="TIMEOUT",
-                error_message=f"Check timed out after {self.timeout_seconds}s",
+            return _enrich_check_result_metadata(
+                CheckResult(
+                    check_key=self.check_key,
+                    status="down",
+                    observed_at=observed_at,
+                    error_code="TIMEOUT",
+                    error_message=f"Check timed out after {self.timeout_seconds}s",
+                )
             )
         except Exception as exc:
-            return CheckResult(
-                check_key=self.check_key,
-                status="down",
-                observed_at=observed_at,
-                error_code="CHECK_EXECUTION_ERROR",
-                error_message=str(exc),
+            return _enrich_check_result_metadata(
+                CheckResult(
+                    check_key=self.check_key,
+                    status="down",
+                    observed_at=observed_at,
+                    error_code="CHECK_EXECUTION_ERROR",
+                    error_message=str(exc),
+                )
             )
+
+
+def _enrich_check_result_metadata(result: CheckResult) -> CheckResult:
+    """Add derived granular metadata used by analytics and reporting.
+
+    Args:
+        result: The check result value.
+
+    Returns:
+        The resulting value.
+    """
+    metadata = dict(result.metadata or {})
+    status_detail = derive_check_status_detail(
+        status=result.status,
+        http_status=result.http_status,
+        latency_ms=result.latency_ms,
+        error_code=result.error_code,
+        metadata=metadata,
+    )
+    check_score = check_result_score(result)
+
+    metadata.setdefault("status_detail", status_detail)
+    metadata.setdefault("severity_level", severity_level_from_check(result.status, status_detail))
+    metadata.setdefault("score_band", score_band_from_score(check_score))
+    result.metadata = metadata
+    return result
 
 
 @asynccontextmanager
