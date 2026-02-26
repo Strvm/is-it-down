@@ -175,7 +175,7 @@ class AwsServiceChecker(BaseServiceChecker):
     """Represent `AwsServiceChecker`."""
 
     service_key = "aws"
-    logo_url = "https://cdn.simpleicons.org/amazonwebservices"
+    logo_url = "https://img.logo.dev/amazonwebservices.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.aws.amazon.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
