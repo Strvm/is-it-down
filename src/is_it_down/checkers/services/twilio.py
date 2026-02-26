@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.services.aws import AwsServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
@@ -170,7 +171,7 @@ class TwilioServiceChecker(BaseServiceChecker):
     service_key = "twilio"
     logo_url = "https://img.logo.dev/twilio.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.twilio.com/"
-    dependencies: Sequence[type[BaseServiceChecker]] = ()
+    dependencies: Sequence[type[BaseServiceChecker]] = (AwsServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         """Build checks.

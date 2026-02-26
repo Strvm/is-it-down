@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
@@ -187,7 +188,7 @@ class OpenAIServiceChecker(BaseServiceChecker):
     service_key = "openai"
     logo_url = "https://img.logo.dev/openai.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.openai.com/"
-    dependencies: Sequence[type[BaseServiceChecker]] = ()
+    dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         """Build checks.

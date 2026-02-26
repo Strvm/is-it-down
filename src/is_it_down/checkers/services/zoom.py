@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
+from is_it_down.checkers.services.cloudflare import CloudflareServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
     apply_statuspage_indicator,
@@ -179,7 +180,7 @@ class ZoomServiceChecker(BaseServiceChecker):
     service_key = "zoom"
     logo_url = "https://cdn.simpleicons.org/zoom"
     official_uptime = "https://status.zoom.us/"
-    dependencies: Sequence[type[BaseServiceChecker]] = ()
+    dependencies: Sequence[type[BaseServiceChecker]] = (CloudflareServiceChecker,)
 
     def build_checks(self) -> Sequence[BaseCheck]:
         """Build checks.
