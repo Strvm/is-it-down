@@ -1,5 +1,6 @@
 """Provide functionality for `is_it_down.checkers.services.gitlab`."""
 
+import re
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -14,6 +15,31 @@ from is_it_down.checkers.utils import (
     status_from_http,
 )
 from is_it_down.core.models import CheckResult
+
+_GITLAB_COMPONENT_STATUS_PATTERN = re.compile(
+    r"""<p[^>]*class=["'][^"']*component-status[^"']*["'][^>]*>([^<]+)</p>""",
+    re.IGNORECASE,
+)
+_GITLAB_COMPONENT_DOWN_STATUSES = {"major outage", "major service disruption"}
+_GITLAB_COMPONENT_DEGRADED_STATUSES = {"partial outage", "degraded performance", "under maintenance", "maintenance"}
+_GITLAB_COMPONENT_UP_STATUSES = {"operational"}
+
+
+def _extract_gitlab_component_statuses(page_text: str) -> list[str]:
+    """Extract gitlab component statuses.
+
+    Args:
+        page_text: The page text value.
+
+    Returns:
+        The resulting value.
+    """
+    statuses: list[str] = []
+    for match in _GITLAB_COMPONENT_STATUS_PATTERN.finditer(page_text):
+        raw_status = match.group(1).strip()
+        if raw_status:
+            statuses.append(raw_status)
+    return statuses
 
 
 class GitLabStatusPageCheck(BaseCheck):
@@ -36,28 +62,50 @@ class GitLabStatusPageCheck(BaseCheck):
         """
         response = await client.get(self.endpoint_key)
         status = status_from_http(response)
-        page_text = response.text.lower()
         metadata: dict[str, Any] = {
             "content_type": response.headers.get("content-type", ""),
             "body_chars": len(response.text),
         }
 
         if response.is_success:
-            has_status_title = "gitlab system status" in page_text
-            has_active_incident = "active incident" in page_text
-            has_partial_disruption = "partial service disruption" in page_text or "degraded performance" in page_text
-            has_major_disruption = "major service disruption" in page_text or "major outage" in page_text
+            page_text = response.text
+            page_text_lower = page_text.lower()
+            component_statuses = _extract_gitlab_component_statuses(page_text)
 
-            metadata["status_title_present"] = has_status_title
-            metadata["active_incident"] = has_active_incident
+            metadata["status_title_present"] = "gitlab system status" in page_text_lower
+            metadata["all_systems_operational"] = "all systems operational" in page_text_lower
+            metadata["component_statuses_sample"] = component_statuses[:8]
+            metadata["component_count"] = len(component_statuses)
 
-            if has_major_disruption:
-                status = "down"
-                metadata["incident_severity"] = "major"
-            elif has_active_incident or has_partial_disruption:
-                status = "degraded"
-                metadata["incident_severity"] = "partial"
-            elif not has_status_title:
+            if component_statuses:
+                normalized_statuses = [component_status.strip().lower() for component_status in component_statuses]
+                major_outage_count = sum(
+                    normalized_status in _GITLAB_COMPONENT_DOWN_STATUSES for normalized_status in normalized_statuses
+                )
+                degraded_component_count = sum(
+                    normalized_status in _GITLAB_COMPONENT_DEGRADED_STATUSES
+                    for normalized_status in normalized_statuses
+                )
+                operational_component_count = sum(
+                    normalized_status in _GITLAB_COMPONENT_UP_STATUSES for normalized_status in normalized_statuses
+                )
+                unknown_component_count = len(component_statuses) - (
+                    major_outage_count + degraded_component_count + operational_component_count
+                )
+
+                metadata["major_outage_component_count"] = major_outage_count
+                metadata["degraded_component_count"] = degraded_component_count
+                metadata["unknown_component_count"] = unknown_component_count
+
+                if major_outage_count > 0:
+                    status = "down"
+                elif degraded_component_count > 0 or unknown_component_count > 0:
+                    status = "degraded"
+                else:
+                    status = "up"
+            elif metadata["all_systems_operational"]:
+                status = "up"
+            else:
                 status = "degraded"
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
 
