@@ -37,3 +37,8 @@ variable "allow_public_invoker" {
   type    = bool
   default = false
 }
+
+variable "default_uri_disabled" {
+  type    = bool
+  default = false
+}

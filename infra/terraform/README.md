@@ -62,6 +62,7 @@ Set a root domain for the current workspace with `custom_domain`. Terraform maps
 
 - web service -> `<custom_domain>`
 - api service -> `<api_subdomain>.<custom_domain>` (default `api`)
+- In `prod`, the default Cloud Run `*.run.app` URL is disabled for both services when a custom domain is configured.
 
 Prerequisite: verify ownership of the root domain in Google Search Console for the same GCP project before applying domain mappings.
 

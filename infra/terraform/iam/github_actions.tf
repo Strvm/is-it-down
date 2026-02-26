@@ -28,8 +28,6 @@ resource "google_project_iam_member" "github_actions_permissions" {
 }
 
 resource "google_service_account_iam_member" "github_can_act_as_runtime_sa" {
-  count = var.runtime_service_account_id == null ? 0 : 1
-
   service_account_id = var.runtime_service_account_id
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.github_actions_service_account.email}"

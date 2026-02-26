@@ -138,6 +138,7 @@ module "cloud_run_api_service" {
   name                  = var.api_service_name
   image                 = "${var.region}-docker.pkg.dev/${var.project[terraform.workspace]}/${var.artifact_registry_repository}/${var.artifact_registry_api_image}:${var.image_tag}"
   service_account_email = google_service_account.api_runtime.email
+  default_uri_disabled  = terraform.workspace == "prod" && local.custom_domain_enabled
   min_instance_count    = 0
   container_port        = 8080
   allow_public_invoker  = true
@@ -170,6 +171,7 @@ module "cloud_run_web_service" {
   name                  = var.web_service_name
   image                 = "${var.region}-docker.pkg.dev/${var.project[terraform.workspace]}/${var.artifact_registry_repository}/${var.artifact_registry_web_image}:${var.image_tag}"
   service_account_email = google_service_account.web_runtime.email
+  default_uri_disabled  = terraform.workspace == "prod" && local.custom_domain_enabled
   min_instance_count    = 0
   container_port        = 8080
   allow_public_invoker  = true

@@ -1,7 +1,8 @@
 resource "google_cloud_run_v2_service" "this" {
-  name     = var.name
-  project  = var.project
-  location = var.region
+  name                 = var.name
+  project              = var.project
+  location             = var.region
+  default_uri_disabled = var.default_uri_disabled
 
   template {
     service_account = var.service_account_email
