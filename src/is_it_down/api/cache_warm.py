@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import asyncio
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 from pydantic import TypeAdapter
@@ -22,6 +25,8 @@ from is_it_down.settings import get_settings
 
 logger = structlog.get_logger(__name__)
 _DEFAULT_WARM_WINDOW = "24h"
+_TOP_VIEWED_LOOKBACK_WINDOW = timedelta(hours=1)
+_WARM_CONCURRENCY = 6
 _SERVICE_SUMMARY_LIST_ADAPTER = TypeAdapter(list[ServiceSummary])
 _INCIDENT_LIST_ADAPTER = TypeAdapter(list[IncidentSummary])
 _SERVICE_UPTIME_LIST_ADAPTER = TypeAdapter(list[ServiceUptimeSummary])
@@ -31,25 +36,130 @@ _SERVICE_CHECKER_TREND_ADAPTER = TypeAdapter(ServiceCheckerTrendSummary)
 _SERVICE_HISTORY_ADAPTER = TypeAdapter(list[SnapshotPoint])
 
 
-def _warm_target_slugs(services: list[ServiceSummary], *, limit: int) -> list[str]:
+def _warm_target_slugs(
+    services: list[ServiceSummary],
+    *,
+    impacted_limit: int,
+    top_viewed_slugs: list[str],
+) -> list[str]:
     """Warm target slugs.
 
     Args:
         services: Service summaries from list endpoint.
-        limit: Maximum number of impacted services to warm.
+        impacted_limit: Maximum number of impacted services to warm.
+        top_viewed_slugs: Top viewed service slugs ordered by descending view volume.
 
     Returns:
         The resulting value.
     """
-    if limit <= 0:
-        return []
-
     impacted = [summary for summary in services if summary.status != "up"]
     impacted.sort(
         key=lambda summary: (summary.severity_level or 0, summary.observed_at),
         reverse=True,
     )
-    return [summary.slug for summary in impacted[:limit]]
+    slugs: list[str] = []
+    slug_set: set[str] = set()
+
+    for summary in impacted[: max(0, impacted_limit)]:
+        if summary.slug not in slug_set:
+            slugs.append(summary.slug)
+            slug_set.add(summary.slug)
+
+    for slug in top_viewed_slugs:
+        if slug not in slug_set:
+            slugs.append(slug)
+            slug_set.add(slug)
+
+    return slugs
+
+
+async def _top_viewed_service_slugs(
+    *,
+    store: BigQueryApiStore,
+    services: list[ServiceSummary],
+    limit: int,
+) -> list[str]:
+    """Top viewed service slugs.
+
+    Args:
+        store: Store dependency.
+        services: Service summaries from list endpoint.
+        limit: Maximum number of top-viewed services to include.
+
+    Returns:
+        Ordered list of top-viewed service slugs.
+    """
+    if limit <= 0:
+        return []
+
+    resolver = getattr(store, "service_detail_view_counts_since", None)
+    if not callable(resolver):
+        return []
+
+    try:
+        view_counts_by_slug = await resolver(cutoff=datetime.now(UTC) - _TOP_VIEWED_LOOKBACK_WINDOW)
+    except Exception:
+        logger.warning("api.cache_warm_top_viewed_lookup_failed", exc_info=True)
+        return []
+
+    known_slugs = {summary.slug for summary in services}
+    ranked: list[tuple[str, int]] = []
+    for slug, view_count_raw in view_counts_by_slug.items():
+        if slug not in known_slugs:
+            continue
+        try:
+            view_count = int(view_count_raw)
+        except (TypeError, ValueError):
+            continue
+        if view_count <= 0:
+            continue
+        ranked.append((slug, view_count))
+    ranked.sort(key=lambda item: (-item[1], item[0]))
+    return [slug for slug, _ in ranked[:limit]]
+
+
+async def _warm_many_keys(
+    *,
+    cache: ApiResponseCache,
+    warm_entries: list[tuple[str, TypeAdapter[Any], Callable[[], Awaitable[Any]]]],
+) -> int:
+    """Warm many keys concurrently.
+
+    Args:
+        cache: Cache dependency.
+        warm_entries: Collection of warm requests.
+
+    Returns:
+        Number of keys that were refreshed successfully.
+    """
+    if not warm_entries:
+        return 0
+
+    semaphore = asyncio.Semaphore(_WARM_CONCURRENCY)
+
+    async def _warm_entry(
+        warm_entry: tuple[str, TypeAdapter[Any], Callable[[], Awaitable[Any]]],
+    ) -> int:
+        """Warm entry.
+
+        Args:
+            warm_entry: Tuple of cache key, adapter, and loader.
+
+        Returns:
+            `1` when the key was warmed successfully; otherwise, `0`.
+        """
+        cache_key, adapter, loader = warm_entry
+        async with semaphore:
+            value = await _warm_key(
+                cache=cache,
+                cache_key=cache_key,
+                adapter=adapter,
+                loader=loader,
+            )
+        return 1 if value is not None else 0
+
+    warmed_results = await asyncio.gather(*(_warm_entry(entry) for entry in warm_entries))
+    return sum(warmed_results)
 
 
 async def _warm_key[T](
@@ -125,36 +235,49 @@ async def warm_api_cache(
     if services is not None:
         warmed_key_count += 1
 
-    if await _warm_key(
+    warmed_key_count += await _warm_many_keys(
         cache=cache,
-        cache_key="incidents:open",
-        adapter=_INCIDENT_LIST_ADAPTER,
-        loader=lambda: store.list_incidents(status="open"),
-    ) is not None:
-        warmed_key_count += 1
-
-    if await _warm_key(
-        cache=cache,
-        cache_key=f"services:uptime:{_DEFAULT_WARM_WINDOW}",
-        adapter=_SERVICE_UPTIME_LIST_ADAPTER,
-        loader=lambda: store.get_services_uptime(cutoff=cutoff),
-    ) is not None:
-        warmed_key_count += 1
-
-    if await _warm_key(
-        cache=cache,
-        cache_key=f"services:checker-trends:{_DEFAULT_WARM_WINDOW}",
-        adapter=_SERVICE_TRENDS_LIST_ADAPTER,
-        loader=lambda: store.get_service_checker_trends(cutoff=cutoff),
-    ) is not None:
-        warmed_key_count += 1
+        warm_entries=[
+            (
+                "incidents:open",
+                _INCIDENT_LIST_ADAPTER,
+                lambda: store.list_incidents(status="open"),
+            ),
+            (
+                "incidents:all",
+                _INCIDENT_LIST_ADAPTER,
+                lambda: store.list_incidents(status="all"),
+            ),
+            (
+                f"services:uptime:{_DEFAULT_WARM_WINDOW}",
+                _SERVICE_UPTIME_LIST_ADAPTER,
+                lambda: store.get_services_uptime(cutoff=cutoff),
+            ),
+            (
+                f"services:checker-trends:{_DEFAULT_WARM_WINDOW}",
+                _SERVICE_TRENDS_LIST_ADAPTER,
+                lambda: store.get_service_checker_trends(cutoff=cutoff),
+            ),
+        ],
+    )
 
     if services is None:
         services = []
 
     warm_service_limit = max(0, settings.api_cache_warm_impacted_service_limit)
-    warm_service_slugs = _warm_target_slugs(services, limit=warm_service_limit)
+    warm_top_viewed_service_limit = max(0, settings.api_cache_warm_top_viewed_service_limit)
+    top_viewed_slugs = await _top_viewed_service_slugs(
+        store=store,
+        services=services,
+        limit=warm_top_viewed_service_limit,
+    )
+    warm_service_slugs = _warm_target_slugs(
+        services,
+        impacted_limit=warm_service_limit,
+        top_viewed_slugs=top_viewed_slugs,
+    )
 
+    service_warm_entries: list[tuple[str, TypeAdapter[Any], Callable[[], Awaitable[Any]]]] = []
     for slug in warm_service_slugs:
         async def load_detail(current_slug: str = slug) -> ServiceDetail:
             """Load detail.
@@ -173,13 +296,13 @@ async def warm_api_cache(
                 raise RuntimeError(f"Service detail is missing for slug='{current_slug}'.")
             return detail
 
-        if await _warm_key(
-            cache=cache,
-            cache_key=f"services:{slug}:detail",
-            adapter=_SERVICE_DETAIL_ADAPTER,
-            loader=load_detail,
-        ) is not None:
-            warmed_key_count += 1
+        service_warm_entries.append(
+            (
+                f"services:{slug}:detail",
+                _SERVICE_DETAIL_ADAPTER,
+                load_detail,
+            )
+        )
 
         async def load_history(current_slug: str = slug) -> list[SnapshotPoint]:
             """Load history.
@@ -198,13 +321,13 @@ async def warm_api_cache(
                 raise RuntimeError(f"Service history is missing for slug='{current_slug}'.")
             return history
 
-        if await _warm_key(
-            cache=cache,
-            cache_key=f"services:{slug}:history:{_DEFAULT_WARM_WINDOW}",
-            adapter=_SERVICE_HISTORY_ADAPTER,
-            loader=load_history,
-        ) is not None:
-            warmed_key_count += 1
+        service_warm_entries.append(
+            (
+                f"services:{slug}:history:{_DEFAULT_WARM_WINDOW}",
+                _SERVICE_HISTORY_ADAPTER,
+                load_history,
+            )
+        )
 
         async def load_checker_trend(current_slug: str = slug) -> ServiceCheckerTrendSummary:
             """Load checker trend.
@@ -223,13 +346,18 @@ async def warm_api_cache(
                 raise RuntimeError(f"Service checker trend is missing for slug='{current_slug}'.")
             return checker_trend
 
-        if await _warm_key(
-            cache=cache,
-            cache_key=f"services:{slug}:checker-trend:{_DEFAULT_WARM_WINDOW}",
-            adapter=_SERVICE_CHECKER_TREND_ADAPTER,
-            loader=load_checker_trend,
-        ) is not None:
-            warmed_key_count += 1
+        service_warm_entries.append(
+            (
+                f"services:{slug}:checker-trend:{_DEFAULT_WARM_WINDOW}",
+                _SERVICE_CHECKER_TREND_ADAPTER,
+                load_checker_trend,
+            )
+        )
+
+    warmed_key_count += await _warm_many_keys(
+        cache=cache,
+        warm_entries=service_warm_entries,
+    )
 
     logger.info(
         "api.cache_warm_completed",

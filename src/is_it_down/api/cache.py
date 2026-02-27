@@ -39,6 +39,8 @@ class ApiResponseCache:
         self._redis: Redis | None = None
         self._redis_init_lock = asyncio.Lock()
         self._redis_init_failed = False
+        self._inflight_loads: dict[str, asyncio.Task[Any]] = {}
+        self._inflight_lock = asyncio.Lock()
 
     @property
     def enabled(self) -> bool:
@@ -184,16 +186,52 @@ class ApiResponseCache:
             except Exception:
                 logger.warning("api.cache_read_failed", key=full_key, exc_info=True)
 
-        value = await loader()
-        logger.debug("api.cache_miss", key=full_key)
-        await self._write(
+        value, owner = await self._run_singleflight_loader(
             full_key=full_key,
-            value=value,
-            adapter=adapter,
-            ttl_seconds=ttl_seconds,
-            redis_client=redis_client,
+            loader=loader,
         )
+        logger.debug("api.cache_miss", key=full_key)
+        if owner:
+            await self._write(
+                full_key=full_key,
+                value=value,
+                adapter=adapter,
+                ttl_seconds=ttl_seconds,
+                redis_client=redis_client,
+            )
         return value
+
+    async def _run_singleflight_loader(
+        self,
+        *,
+        full_key: str,
+        loader: Callable[[], Awaitable[T]],
+    ) -> tuple[T, bool]:
+        """Run singleflight loader.
+
+        Args:
+            full_key: Fully namespaced cache key.
+            loader: Async loader executed on cache miss.
+
+        Returns:
+            Tuple containing the loaded value and whether this call owned execution.
+        """
+        owner = False
+        async with self._inflight_lock:
+            task = self._inflight_loads.get(full_key)
+            if task is None:
+                owner = True
+                task = asyncio.create_task(loader())
+                self._inflight_loads[full_key] = task
+
+        try:
+            value = await task
+            return value, owner
+        finally:
+            if owner:
+                async with self._inflight_lock:
+                    if self._inflight_loads.get(full_key) is task:
+                        del self._inflight_loads[full_key]
 
     async def refresh(
         self,

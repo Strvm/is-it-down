@@ -153,7 +153,7 @@ variable "api_cache_enabled" {
 
 variable "api_cache_ttl_seconds" {
   type    = number
-  default = 60
+  default = 600
 }
 
 variable "api_cache_key_prefix" {
@@ -167,6 +167,11 @@ variable "api_cache_warm_on_checker_job" {
 }
 
 variable "api_cache_warm_impacted_service_limit" {
+  type    = number
+  default = 25
+}
+
+variable "api_cache_warm_top_viewed_service_limit" {
   type    = number
   default = 25
 }

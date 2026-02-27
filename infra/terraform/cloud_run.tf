@@ -150,6 +150,11 @@ resource "google_cloud_run_v2_job" "checker" {
           name  = "IS_IT_DOWN_API_CACHE_WARM_IMPACTED_SERVICE_LIMIT"
           value = tostring(var.api_cache_warm_impacted_service_limit)
         }
+
+        env {
+          name  = "IS_IT_DOWN_API_CACHE_WARM_TOP_VIEWED_SERVICE_LIMIT"
+          value = tostring(var.api_cache_warm_top_viewed_service_limit)
+        }
       }
     }
   }

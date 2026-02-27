@@ -58,9 +58,13 @@ class FakeStore:
             _service_summary(slug="stripe", status="down", severity_level=5),
             _service_summary(slug="vercel", status="degraded", severity_level=3),
         ]
+        self.view_counts_by_slug: dict[str, int] = {}
 
     async def list_services(self) -> list[ServiceSummary]:
         return self.services
+
+    async def service_detail_view_counts_since(self, *, cutoff: datetime) -> dict[str, int]:
+        return self.view_counts_by_slug
 
     async def list_incidents(self, *, status: str) -> list[IncidentSummary]:
         return [
@@ -158,9 +162,10 @@ async def test_warm_api_cache_warms_global_and_impacted_service_keys(monkeypatch
     cache = FakeCache()
     warmed = await warm_api_cache(store=store, cache=cache)
 
-    assert warmed == 7
+    assert warmed == 8
     assert "services:list" in cache.keys
     assert "incidents:open" in cache.keys
+    assert "incidents:all" in cache.keys
     assert "services:uptime:24h" in cache.keys
     assert "services:checker-trends:24h" in cache.keys
     assert "services:stripe:detail" in cache.keys
@@ -179,10 +184,29 @@ async def test_warm_api_cache_continues_when_individual_key_warm_fails(monkeypat
     cache = FakeCache(fail_keys={"services:stripe:detail"})
     warmed = await warm_api_cache(store=store, cache=cache)
 
-    assert warmed == 6
+    assert warmed == 7
     assert "services:stripe:detail" in cache.keys
     assert "services:stripe:history:24h" in cache.keys
     assert "services:stripe:checker-trend:24h" in cache.keys
+
+
+@pytest.mark.asyncio
+async def test_warm_api_cache_can_include_top_viewed_services(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_ENABLED", "true")
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_WARM_IMPACTED_SERVICE_LIMIT", "0")
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_WARM_TOP_VIEWED_SERVICE_LIMIT", "1")
+    _reset_settings_cache()
+
+    store = FakeStore()
+    store.view_counts_by_slug = {"github": 8, "stripe": 3}
+    cache = FakeCache()
+    warmed = await warm_api_cache(store=store, cache=cache)
+
+    assert warmed == 8
+    assert "services:github:detail" in cache.keys
+    assert "services:github:history:24h" in cache.keys
+    assert "services:github:checker-trend:24h" in cache.keys
+    assert "services:stripe:detail" not in cache.keys
 
 
 @pytest.mark.asyncio

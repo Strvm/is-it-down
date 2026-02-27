@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import pytest
@@ -130,3 +131,31 @@ async def test_refresh_overwrites_existing_cached_value(monkeypatch: pytest.Monk
 
     assert result == {"score": 99}
     assert json.loads(fake_redis.store[key]) == {"score": 99}
+
+
+@pytest.mark.asyncio
+async def test_get_or_set_coalesces_concurrent_cache_misses(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_ENABLED", "true")
+    _reset_settings_cache()
+
+    cache = ApiResponseCache()
+    fake_redis = FakeRedis()
+    cache._redis = fake_redis
+    adapter = TypeAdapter(dict[str, int])
+    called = 0
+
+    async def loader() -> dict[str, int]:
+        nonlocal called
+        called += 1
+        await asyncio.sleep(0.01)
+        return {"value": 11}
+
+    results = await asyncio.gather(
+        *(
+            cache.get_or_set(cache_key="services:list", adapter=adapter, loader=loader)
+            for _ in range(8)
+        )
+    )
+
+    assert results == [{"value": 11}] * 8
+    assert called == 1

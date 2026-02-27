@@ -73,7 +73,7 @@ export async function getServiceCheckerTrends(
 ): Promise<ServiceCheckerTrendSummary[]> {
   return fetchJson<ServiceCheckerTrendSummary[]>(
     `/v1/services/checker-trends?window=${encodeURIComponent(window)}`,
-    0,
+    20,
   );
 }
 
