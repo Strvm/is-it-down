@@ -189,14 +189,62 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
   const dependencySignals = filteredServices.filter((service) => service.dependency_impacted).length;
 
   useEffect(() => {
-    // Prefetch the most visible service detail routes so card clicks transition instantly.
-    for (const trend of filteredCheckerTrends.slice(0, 24)) {
-      if (prefetchedSlugsRef.current.has(trend.slug)) {
-        continue;
-      }
-      prefetchedSlugsRef.current.add(trend.slug);
-      router.prefetch(`/services/${trend.slug}`);
+    // Prefetch visible service detail routes during idle time to minimize click latency.
+    const pendingSlugs = filteredCheckerTrends
+      .map((trend) => trend.slug)
+      .filter((slug) => !prefetchedSlugsRef.current.has(slug));
+    if (pendingSlugs.length === 0) {
+      return;
     }
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    let canceled = false;
+    let index = 0;
+    let idleId: number | null = null;
+    let timeoutId: number | null = null;
+    const batchSize = 12;
+
+    const runBatch = () => {
+      if (canceled) {
+        return;
+      }
+      const end = Math.min(index + batchSize, pendingSlugs.length);
+      for (; index < end; index += 1) {
+        const slug = pendingSlugs[index];
+        prefetchedSlugsRef.current.add(slug);
+        router.prefetch(`/services/${slug}`);
+      }
+      if (index < pendingSlugs.length) {
+        schedule();
+      }
+    };
+
+    const schedule = () => {
+      if (canceled) {
+        return;
+      }
+      if (typeof idleWindow.requestIdleCallback === "function") {
+        idleId = idleWindow.requestIdleCallback(runBatch, { timeout: 200 });
+        return;
+      }
+      timeoutId = window.setTimeout(runBatch, 16);
+    };
+
+    schedule();
+
+    return () => {
+      canceled = true;
+      if (idleId !== null && typeof idleWindow.cancelIdleCallback === "function") {
+        idleWindow.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, [filteredCheckerTrends, router]);
 
   function prefetchService(slug: string) {
