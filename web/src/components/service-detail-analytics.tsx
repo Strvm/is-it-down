@@ -222,41 +222,43 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
 
   return (
     <section className="space-y-6">
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <Card className="fade-in-up">
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-5">
             <CardDescription className="inline-flex items-center gap-1.5">
               <Activity className="size-4 text-teal-700" />
               24h samples
             </CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{timelineSummary.sampleCount}</CardTitle>
+            <CardTitle className="text-2xl tabular-nums sm:text-3xl">{timelineSummary.sampleCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="fade-in-up">
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-5">
             <CardDescription className="inline-flex items-center gap-1.5">
               <ChartLine className="size-4 text-blue-700" />
               Avg health score
             </CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{timelineSummary.averageScore.toFixed(1)}</CardTitle>
+            <CardTitle className="text-2xl tabular-nums sm:text-3xl">
+              {timelineSummary.averageScore.toFixed(1)}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card className="fade-in-up">
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-5">
             <CardDescription className="inline-flex items-center gap-1.5">
               <ShieldCheck className="size-4 text-emerald-700" />
               Healthy snapshots
             </CardDescription>
-            <CardTitle className="text-3xl tabular-nums">{timelineSummary.upRate.toFixed(1)}%</CardTitle>
+            <CardTitle className="text-2xl tabular-nums sm:text-3xl">{timelineSummary.upRate.toFixed(1)}%</CardTitle>
           </CardHeader>
         </Card>
         <Card className="fade-in-up">
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-5">
             <CardDescription className="inline-flex items-center gap-1.5">
               <TrendingDown className="size-4 text-rose-700" />
               Lowest score (24h)
             </CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
+            <CardTitle className="text-xl tabular-nums sm:text-2xl">
               {timelineSummary.lowestScore ? timelineSummary.lowestScore.score.toFixed(1) : "-"}
             </CardTitle>
             <CardDescription>
@@ -267,12 +269,12 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
           </CardHeader>
         </Card>
         <Card className="fade-in-up">
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-5">
             <CardDescription className="inline-flex items-center gap-1.5">
               <AlertTriangle className="size-4 text-orange-700" />
               Peak severity
             </CardDescription>
-            <CardTitle className="text-3xl tabular-nums">
+            <CardTitle className="text-2xl tabular-nums sm:text-3xl">
               {timelineSummary.maxSeverity !== null ? timelineSummary.maxSeverity : "-"}
             </CardTitle>
           </CardHeader>
@@ -291,7 +293,7 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
             {timelinePoints.length === 0 ? (
               <p className="text-sm text-slate-600">No history points available yet.</p>
             ) : (
-              <div className="h-[300px] w-full">
+              <div className="h-[240px] w-full sm:h-[300px]">
                 <ChartContainer config={SCORE_TIMELINE_CONFIG} className="h-full w-full">
                   <LineChart
                     accessibilityLayer
@@ -412,7 +414,7 @@ export function ServiceDetailAnalytics({ history, checkerTrend }: Props) {
                   );
                 })}
               </div>
-              <div className="h-[310px] w-full">
+              <div className="h-[260px] w-full sm:h-[310px]">
                 <ChartContainer config={checkerChartConfig} className="h-full w-full">
                   <LineChart
                     accessibilityLayer

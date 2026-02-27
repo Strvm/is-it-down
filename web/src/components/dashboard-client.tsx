@@ -272,7 +272,7 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
         </CardContent>
       </Card>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <section className="grid grid-cols-3 gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Card className="fade-in-up">
           <CardHeader>
             <CardDescription>Visible services</CardDescription>
@@ -353,20 +353,20 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
                 onFocus={() => prefetchService(serviceTrend.slug)}
                 onTouchStart={() => prefetchService(serviceTrend.slug)}
                 onPointerDown={() => prefetchService(serviceTrend.slug, true)}
-                className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                className="block h-full min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
               >
-                <Card className="fade-in-up flex h-full flex-col transition-all hover:-translate-y-0.5 hover:border-teal-400/70 hover:shadow-md">
+                <Card className="fade-in-up flex h-full min-w-0 flex-col transition-all hover:-translate-y-0.5 hover:border-teal-400/70 hover:shadow-md">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-3 text-base">
+                    <CardTitle className="flex flex-wrap items-center gap-2.5 text-base sm:flex-nowrap sm:gap-3">
                       <img
                         src={serviceTrend.logo_url}
                         alt={`${serviceTrend.name} logo`}
-                        className="h-8 w-8 rounded-md border border-slate-200 bg-white p-1"
+                        className="h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-white p-1"
                         loading="lazy"
                       />
-                      <span className="truncate">{serviceTrend.name}</span>
+                      <span className="min-w-0 flex-1 truncate">{serviceTrend.name}</span>
                       {summary ? (
-                        <Badge variant={scoreBandTone(summary.score_band)}>
+                        <Badge variant={scoreBandTone(summary.score_band)} className="shrink-0">
                           {formatSignalLabel(summary.score_band || summary.status)}
                         </Badge>
                       ) : null}
@@ -385,7 +385,7 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
                       <p className="text-sm text-slate-600">No checker trend points available yet.</p>
                     ) : (
                       <>
-                        <div className="mb-3 overflow-x-auto pb-1">
+                        <div className="mb-3 max-w-full overflow-x-auto pb-1">
                           <div className="flex min-w-max gap-2">
                             {series.map((item) => (
                               <span
@@ -401,7 +401,7 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
                             ))}
                           </div>
                         </div>
-                        <div className="h-[240px] w-full flex-none">
+                        <div className="h-[220px] w-full flex-none sm:h-[240px]">
                           <ChartContainer config={chartConfig} className="h-full w-full">
                             <LineChart
                               accessibilityLayer
@@ -459,7 +459,7 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
           {filteredIncidents.length === 0 ? (
             <p className="text-sm text-slate-600">No incidents found for the current filter.</p>
           ) : (
-            <Table>
+            <Table className="min-w-[28rem]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>

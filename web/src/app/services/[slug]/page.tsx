@@ -43,22 +43,22 @@ const getServiceCheckerTrendForPage = cache(async (slug: string) => getServiceCh
 function ServiceOverviewSkeleton() {
   return (
     <>
-      <div className="fade-in-up flex items-start justify-between gap-4">
+      <div className="fade-in-up flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="h-9 w-20 animate-pulse rounded-md bg-slate-200" />
-        <div className="min-w-0 space-y-2 text-right">
-          <div className="flex items-center justify-end gap-3">
+        <div className="min-w-0 space-y-2 sm:text-right">
+          <div className="flex flex-wrap items-center gap-3 sm:flex-nowrap sm:justify-end">
             <div className="h-10 w-10 animate-pulse rounded-md bg-slate-200" />
-            <div className="h-9 w-48 animate-pulse rounded bg-slate-200" />
+            <div className="h-9 w-full max-w-[16rem] animate-pulse rounded bg-slate-200 sm:w-48" />
             <div className="h-6 w-20 animate-pulse rounded bg-slate-200" />
           </div>
-          <div className="ml-auto h-4 w-72 animate-pulse rounded bg-slate-200" />
+          <div className="h-4 w-full max-w-[18rem] animate-pulse rounded bg-slate-200 sm:ml-auto sm:w-72" />
         </div>
       </div>
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
-        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
-        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
-        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <div className="h-24 animate-pulse rounded-xl bg-slate-200 sm:h-28" />
+        <div className="h-24 animate-pulse rounded-xl bg-slate-200 sm:h-28" />
+        <div className="h-24 animate-pulse rounded-xl bg-slate-200 sm:h-28" />
+        <div className="h-24 animate-pulse rounded-xl bg-slate-200 sm:h-28" />
       </section>
     </>
   );
@@ -67,12 +67,12 @@ function ServiceOverviewSkeleton() {
 function ServiceAnalyticsSkeleton() {
   return (
     <section className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
-        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
-        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
-        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
-        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
+        <div className="h-24 animate-pulse rounded-xl bg-slate-200 sm:h-28" />
+        <div className="h-24 animate-pulse rounded-xl bg-slate-200 sm:h-28" />
+        <div className="h-24 animate-pulse rounded-xl bg-slate-200 sm:h-28" />
+        <div className="h-24 animate-pulse rounded-xl bg-slate-200 sm:h-28" />
+        <div className="h-24 animate-pulse rounded-xl bg-slate-200 sm:h-28" />
       </div>
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="h-80 animate-pulse rounded-xl bg-slate-200" />
@@ -87,7 +87,7 @@ function ServiceChecksSkeleton() {
     <Card className="fade-in-up">
       <CardHeader>
         <div className="h-6 w-32 animate-pulse rounded bg-slate-200" />
-        <div className="h-4 w-72 animate-pulse rounded bg-slate-200" />
+        <div className="h-4 w-full max-w-[18rem] animate-pulse rounded bg-slate-200 sm:w-72" />
       </CardHeader>
       <CardContent>
         <div className="h-64 animate-pulse rounded bg-slate-200" />
@@ -103,37 +103,37 @@ async function ServiceOverviewSection({ slug }: ServiceSectionProps) {
 
   return (
     <>
-      <div className="fade-in-up flex items-start justify-between gap-4">
+      <div className="fade-in-up flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <Button asChild variant="secondary">
           <Link href="/">
             <ArrowLeft />
             Back
           </Link>
         </Button>
-        <div className="min-w-0 space-y-2 text-right">
-          <div className="flex items-center justify-end gap-3">
+        <div className="min-w-0 space-y-2 sm:text-right">
+          <div className="flex flex-wrap items-center gap-2.5 sm:flex-nowrap sm:justify-end sm:gap-3">
             <img
               src={detail.logo_url}
               alt={`${detail.name} logo`}
-              className="h-10 w-10 rounded-md border border-slate-200 bg-white p-1"
+              className="h-10 w-10 shrink-0 rounded-md border border-slate-200 bg-white p-1"
               loading="lazy"
             />
-            <h1 className="text-3xl font-bold tracking-tight">{detail.name}</h1>
-            <Badge variant={scoreBandTone(detail.snapshot.score_band)}>
+            <h1 className="min-w-0 text-2xl font-bold tracking-tight sm:text-3xl">{detail.name}</h1>
+            <Badge variant={scoreBandTone(detail.snapshot.score_band)} className="shrink-0">
               {formatSignalLabel(detail.snapshot.score_band || detail.snapshot.status)}
             </Badge>
           </div>
           {detail.description ? (
-            <p className="text-sm text-slate-600">{detail.description}</p>
+            <p className="text-sm text-slate-600 break-words">{detail.description}</p>
           ) : null}
           {detail.official_status_url ? (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 break-words">
               Official status page:{" "}
               <a
                 href={detail.official_status_url}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-teal-700 underline decoration-teal-400 underline-offset-2 hover:text-teal-800"
+                className="font-medium text-teal-700 underline decoration-teal-400 underline-offset-2 break-all hover:text-teal-800"
               >
                 {detail.official_status_url}
               </a>
@@ -145,17 +145,17 @@ async function ServiceOverviewSection({ slug }: ServiceSectionProps) {
         </div>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Card className="fade-in-up">
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-5">
             <CardDescription>Health score</CardDescription>
-            <CardTitle className="text-3xl tabular-nums">
+            <CardTitle className="text-2xl tabular-nums sm:text-3xl">
               {detail.snapshot.effective_score.toFixed(1)}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card className="fade-in-up">
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-5">
             <CardDescription>Current signal</CardDescription>
             <CardTitle className="text-base">{formatSignalLabel(detail.snapshot.status_detail)}</CardTitle>
             <CardDescription>
@@ -164,7 +164,7 @@ async function ServiceOverviewSection({ slug }: ServiceSectionProps) {
           </CardHeader>
         </Card>
         <Card className="fade-in-up sm:col-span-2 xl:col-span-1">
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-5">
             <CardDescription>Likely cause</CardDescription>
             <CardTitle className="text-base">
               {hasLikelyRelatedServices ? "Potential dependency impact detected" : "No dependency signal detected"}
@@ -175,7 +175,7 @@ async function ServiceOverviewSection({ slug }: ServiceSectionProps) {
                   <Link
                     key={relatedService.slug}
                     href={`/services/${relatedService.slug}`}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 transition-colors hover:border-teal-500 hover:bg-teal-50/40"
+                    className="inline-flex max-w-full items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 transition-colors hover:border-teal-500 hover:bg-teal-50/40"
                   >
                     <img
                       src={relatedService.logo_url}
@@ -183,8 +183,12 @@ async function ServiceOverviewSection({ slug }: ServiceSectionProps) {
                       className="h-5 w-5 rounded border border-slate-200 bg-white p-0.5"
                       loading="lazy"
                     />
-                    <span className="text-sm font-medium">{relatedService.name}</span>
-                    <StatusBadge status={relatedService.status} />
+                    <span className="max-w-[9rem] truncate text-sm font-medium sm:max-w-none">
+                      {relatedService.name}
+                    </span>
+                    <span className="shrink-0">
+                      <StatusBadge status={relatedService.status} />
+                    </span>
                   </Link>
                 ))}
               </div>
@@ -201,7 +205,7 @@ async function ServiceOverviewSection({ slug }: ServiceSectionProps) {
           </CardHeader>
         </Card>
         <Card className="fade-in-up">
-          <CardHeader>
+          <CardHeader className="p-3 sm:p-5">
             <CardDescription>Last observed</CardDescription>
             <CardTitle className="text-sm font-semibold">
               {formatDateTime(detail.snapshot.observed_at)}
@@ -233,7 +237,7 @@ async function ServiceChecksSection({ slug }: ServiceSectionProps) {
         <CardDescription>Latest result per check key from the backend.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
+        <Table className="min-w-[36rem]">
           <TableHeader>
             <TableRow>
               <TableHead>Check</TableHead>
