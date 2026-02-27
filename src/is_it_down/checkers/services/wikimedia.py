@@ -22,7 +22,7 @@ class WikimediaStatusCheck(BaseCheck):
     """Represent `WikimediaStatusCheck`."""
 
     check_key = "wikimedia_status"
-    endpoint_key = "https://status.wikimedia.org/api/v2/status.json"
+    endpoint_key = "https://www.wikimediastatus.net/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -77,7 +77,7 @@ class WikimediaSummaryCheck(BaseCheck):
     """Represent `WikimediaSummaryCheck`."""
 
     check_key = "wikimedia_summary"
-    endpoint_key = "https://status.wikimedia.org/api/v2/summary.json"
+    endpoint_key = "https://www.wikimediastatus.net/api/v2/summary.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -120,7 +120,7 @@ class WikimediaComponentsCheck(BaseCheck):
     """Represent `WikimediaComponentsCheck`."""
 
     check_key = "wikimedia_components"
-    endpoint_key = "https://status.wikimedia.org/api/v2/components.json"
+    endpoint_key = "https://www.wikimediastatus.net/api/v2/components.json"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -236,7 +236,7 @@ class WikimediaServiceChecker(BaseServiceChecker):
 
     service_key = "wikimedia"
     logo_url = "https://img.logo.dev/wikimedia.org?token=pk_Ob37anqtSYSOl80OeGoACA"
-    official_uptime = "https://status.wikimedia.org/"
+    official_uptime = "https://www.wikimediastatus.net/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

@@ -22,7 +22,7 @@ class SubstackStatusCheck(BaseCheck):
     """Represent `SubstackStatusCheck`."""
 
     check_key = "substack_status"
-    endpoint_key = "https://substackstatus.com/api/v2/status.json"
+    endpoint_key = "https://substack.statuspage.io/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -77,7 +77,7 @@ class SubstackSummaryCheck(BaseCheck):
     """Represent `SubstackSummaryCheck`."""
 
     check_key = "substack_summary"
-    endpoint_key = "https://substackstatus.com/api/v2/summary.json"
+    endpoint_key = "https://substack.statuspage.io/api/v2/summary.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -120,7 +120,7 @@ class SubstackComponentsCheck(BaseCheck):
     """Represent `SubstackComponentsCheck`."""
 
     check_key = "substack_components"
-    endpoint_key = "https://substackstatus.com/api/v2/components.json"
+    endpoint_key = "https://substack.statuspage.io/api/v2/components.json"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -236,7 +236,7 @@ class SubstackServiceChecker(BaseServiceChecker):
 
     service_key = "substack"
     logo_url = "https://cdn.simpleicons.org/substack"
-    official_uptime = "https://substackstatus.com/"
+    official_uptime = "https://substack.statuspage.io/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

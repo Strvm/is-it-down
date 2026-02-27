@@ -9,7 +9,6 @@ import httpx
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
-    apply_statuspage_indicator,
     json_dict_or_none,
     response_latency_ms,
     status_from_http,
@@ -21,7 +20,7 @@ class ReplitStatusPageCheck(BaseCheck):
     """Represent `ReplitStatusPageCheck`."""
 
     check_key = "replit_status_page"
-    endpoint_key = "https://status.replit.com/api/v2/status.json"
+    endpoint_key = "https://status.replit.com/api/v1/status"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -44,22 +43,26 @@ class ReplitStatusPageCheck(BaseCheck):
             if payload is None:
                 status = "degraded"
             else:
-                status_block = payload.get("status")
-                indicator: str | None = None
-                if isinstance(status_block, dict):
-                    raw_indicator = status_block.get("indicator")
-                    raw_description = status_block.get("description")
-                    if isinstance(raw_indicator, str):
-                        indicator = raw_indicator
-                    if isinstance(raw_description, str):
-                        metadata["description"] = raw_description
+                page = payload.get("page")
+                page_state: str | None = None
+                if isinstance(page, dict):
+                    raw_state = page.get("state")
+                    if isinstance(raw_state, str):
+                        page_state = raw_state
+                    state_text = page.get("state_text")
+                    if isinstance(state_text, str):
+                        metadata["state_text"] = state_text
+                if page_state is None:
+                    status = "degraded"
                 else:
-                    status = "degraded"
-
-                metadata["indicator"] = indicator
-                status = apply_statuspage_indicator(status, indicator)
-                if indicator is None:
-                    status = "degraded"
+                    normalized = page_state.strip().lower()
+                    metadata["page_state"] = normalized
+                    if normalized in {"operational", "up"}:
+                        status = "up"
+                    elif normalized in {"major_outage", "down"}:
+                        status = "down"
+                    else:
+                        status = "degraded"
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
         return CheckResult(

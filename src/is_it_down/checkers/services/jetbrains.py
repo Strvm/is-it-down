@@ -14,7 +14,7 @@ class JetBrainsStatusPageCheck(HtmlMarkerCheck):
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.3
-    expected_markers = ("jetbrains",)
+    expected_markers = ("status",)
 
 
 class JetBrainsHomepageCheck(HtmlMarkerCheck):

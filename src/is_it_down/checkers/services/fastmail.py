@@ -9,7 +9,6 @@ import httpx
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
-    apply_statuspage_indicator,
     json_dict_or_none,
     response_latency_ms,
     status_from_http,
@@ -21,7 +20,7 @@ class FastmailStatusPageCheck(BaseCheck):
     """Represent `FastmailStatusPageCheck`."""
 
     check_key = "fastmail_status_page"
-    endpoint_key = "https://status.fastmail.com/api/v2/status.json"
+    endpoint_key = "https://fastmail.instatus.com/summary.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -44,22 +43,26 @@ class FastmailStatusPageCheck(BaseCheck):
             if payload is None:
                 status = "degraded"
             else:
-                status_block = payload.get("status")
-                indicator: str | None = None
-                if isinstance(status_block, dict):
-                    raw_indicator = status_block.get("indicator")
-                    raw_description = status_block.get("description")
-                    if isinstance(raw_indicator, str):
-                        indicator = raw_indicator
-                    if isinstance(raw_description, str):
-                        metadata["description"] = raw_description
+                page = payload.get("page")
+                page_status: str | None = None
+                if isinstance(page, dict):
+                    raw_page_status = page.get("status")
+                    if isinstance(raw_page_status, str):
+                        page_status = raw_page_status
+                    page_name = page.get("name")
+                    if isinstance(page_name, str):
+                        metadata["page_name"] = page_name
+                if page_status is None:
+                    status = "degraded"
                 else:
-                    status = "degraded"
-
-                metadata["indicator"] = indicator
-                status = apply_statuspage_indicator(status, indicator)
-                if indicator is None:
-                    status = "degraded"
+                    normalized = page_status.strip().lower()
+                    metadata["page_status"] = normalized
+                    if normalized in {"up", "operational"}:
+                        status = "up"
+                    elif normalized in {"down", "outage", "major_outage"}:
+                        status = "down"
+                    else:
+                        status = "degraded"
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
         return CheckResult(
@@ -231,7 +234,7 @@ class FastmailServiceChecker(BaseServiceChecker):
 
     service_key = "fastmail"
     logo_url = "https://img.logo.dev/fastmail.com?token=pk_Ob37anqtSYSOl80OeGoACA"
-    official_uptime = "https://status.fastmail.com/"
+    official_uptime = "https://fastmail.instatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

@@ -9,7 +9,6 @@ import httpx
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
-    apply_statuspage_indicator,
     json_dict_or_none,
     response_latency_ms,
     status_from_http,
@@ -21,7 +20,7 @@ class DockerHubStatusPageCheck(BaseCheck):
     """Represent `DockerHubStatusPageCheck`."""
 
     check_key = "dockerhub_status_page"
-    endpoint_key = "https://www.dockerstatus.com/api/v2/status.json"
+    endpoint_key = "https://www.dockerstatus.com/1.0/status/533c6539221ae15e3f000031"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -44,22 +43,27 @@ class DockerHubStatusPageCheck(BaseCheck):
             if payload is None:
                 status = "degraded"
             else:
-                status_block = payload.get("status")
-                indicator: str | None = None
-                if isinstance(status_block, dict):
-                    raw_indicator = status_block.get("indicator")
-                    raw_description = status_block.get("description")
-                    if isinstance(raw_indicator, str):
-                        indicator = raw_indicator
-                    if isinstance(raw_description, str):
-                        metadata["description"] = raw_description
+                result = payload.get("result")
+                overall_status_code: int | None = None
+                if isinstance(result, dict):
+                    status_overall = result.get("status_overall")
+                    if isinstance(status_overall, dict):
+                        raw_status_code = status_overall.get("status_code")
+                        if isinstance(raw_status_code, int):
+                            overall_status_code = raw_status_code
+                        overall_status_label = status_overall.get("status")
+                        if isinstance(overall_status_label, str):
+                            metadata["overall_status"] = overall_status_label
+                if overall_status_code is None:
+                    status = "degraded"
                 else:
-                    status = "degraded"
-
-                metadata["indicator"] = indicator
-                status = apply_statuspage_indicator(status, indicator)
-                if indicator is None:
-                    status = "degraded"
+                    metadata["overall_status_code"] = overall_status_code
+                    if overall_status_code == 100:
+                        status = "up"
+                    elif overall_status_code >= 300:
+                        status = "down"
+                    else:
+                        status = "degraded"
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
         return CheckResult(

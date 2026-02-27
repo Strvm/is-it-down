@@ -21,7 +21,7 @@ class HetznerStatusPageCheck(BaseCheck):
     """Represent `HetznerStatusPageCheck`."""
 
     check_key = "hetzner_status_page"
-    endpoint_key = "https://status.hetzner.com/api/v2/status.json"
+    endpoint_key = "https://status.hetzner.com/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -42,7 +42,14 @@ class HetznerStatusPageCheck(BaseCheck):
         if response.is_success:
             payload = json_dict_or_none(response)
             if payload is None:
-                status = "degraded"
+                page_text = response.text.lower()
+                marker_hits = {
+                    "hetzner": "hetzner" in page_text,
+                    "status": "status" in page_text,
+                }
+                metadata["marker_hits"] = marker_hits
+                if not any(marker_hits.values()):
+                    status = "degraded"
             else:
                 status_block = payload.get("status")
                 indicator: str | None = None
@@ -190,7 +197,7 @@ class HetznerRobotsCheck(BaseCheck):
     """Represent `HetznerRobotsCheck`."""
 
     check_key = "hetzner_robots"
-    endpoint_key = "https://www.hetzner.com/robots.txt"
+    endpoint_key = "https://www.hetzner.com/favicon.ico"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.1

@@ -9,7 +9,6 @@ import httpx
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
-    apply_statuspage_indicator,
     json_dict_or_none,
     response_latency_ms,
     safe_get,
@@ -22,7 +21,7 @@ class CitrixStatusCheck(BaseCheck):
     """Represent `CitrixStatusCheck`."""
 
     check_key = "citrix_status"
-    endpoint_key = "https://status.cloud.com/api/v2/status.json"
+    endpoint_key = "https://status.cloud.com/api/statuses"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -45,22 +44,34 @@ class CitrixStatusCheck(BaseCheck):
             if payload is None:
                 status = "degraded"
             else:
-                status_block = payload.get("status")
-                indicator: str | None = None
-                if isinstance(status_block, dict):
-                    raw_indicator = status_block.get("indicator")
-                    raw_description = status_block.get("description")
-                    if isinstance(raw_indicator, str):
-                        indicator = raw_indicator
-                    if isinstance(raw_description, str):
-                        metadata["description"] = raw_description
+                groups = payload.get("groups")
+                if not isinstance(groups, list):
+                    status = "degraded"
                 else:
-                    status = "degraded"
+                    service_status_codes: list[int] = []
+                    for group in groups:
+                        if not isinstance(group, dict):
+                            continue
+                        services = group.get("services")
+                        if not isinstance(services, list):
+                            continue
+                        for service in services:
+                            if not isinstance(service, dict):
+                                continue
+                            raw_status = service.get("status")
+                            if isinstance(raw_status, int):
+                                service_status_codes.append(raw_status)
 
-                metadata["indicator"] = indicator
-                status = apply_statuspage_indicator(status, indicator)
-                if indicator is None:
-                    status = "degraded"
+                    metadata["service_count"] = len(service_status_codes)
+                    degraded_count = sum(1 for code in service_status_codes if code == 2)
+                    down_count = sum(1 for code in service_status_codes if code >= 3)
+                    metadata["degraded_service_count"] = degraded_count
+                    metadata["down_service_count"] = down_count
+
+                    if down_count > 0:
+                        status = "down"
+                    elif degraded_count > 0:
+                        status = "degraded"
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
         return CheckResult(
@@ -77,7 +88,7 @@ class CitrixSummaryCheck(BaseCheck):
     """Represent `CitrixSummaryCheck`."""
 
     check_key = "citrix_summary"
-    endpoint_key = "https://status.cloud.com/api/v2/summary.json"
+    endpoint_key = "https://status.cloud.com/api/incidents"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -96,14 +107,17 @@ class CitrixSummaryCheck(BaseCheck):
         metadata: dict[str, Any] = {}
 
         if response.is_success:
-            payload = json_dict_or_none(response)
-            if payload is None:
+            incidents: list[Any] = []
+            try:
+                parsed = response.json()
+                if isinstance(parsed, list):
+                    incidents = parsed
+            except ValueError:
                 status = "degraded"
-            else:
-                components = payload.get("components")
-                incidents = payload.get("incidents")
-                metadata["components_count"] = len(components) if isinstance(components, list) else None
-                metadata["incidents_count"] = len(incidents) if isinstance(incidents, list) else None
+
+            metadata["incident_count"] = len(incidents)
+            if incidents:
+                status = "degraded"
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
         return CheckResult(
@@ -120,7 +134,7 @@ class CitrixComponentsCheck(BaseCheck):
     """Represent `CitrixComponentsCheck`."""
 
     check_key = "citrix_components"
-    endpoint_key = "https://status.cloud.com/api/v2/components.json"
+    endpoint_key = "https://status.cloud.com/api/history"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -138,12 +152,23 @@ class CitrixComponentsCheck(BaseCheck):
         metadata: dict[str, Any] = {}
 
         if response.is_success:
-            payload = json_dict_or_none(response)
-            if payload is None:
+            groups: list[Any] = []
+            try:
+                parsed = response.json()
+                if isinstance(parsed, list):
+                    groups = parsed
+            except ValueError:
                 status = "degraded"
-            else:
-                components = payload.get("components")
-                metadata["components_count"] = len(components) if isinstance(components, list) else None
+
+            service_count = 0
+            for group in groups:
+                if not isinstance(group, dict):
+                    continue
+                services = group.get("services")
+                if isinstance(services, list):
+                    service_count += len([service for service in services if isinstance(service, dict)])
+            metadata["history_group_count"] = len(groups)
+            metadata["history_service_count"] = service_count
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
         return CheckResult(

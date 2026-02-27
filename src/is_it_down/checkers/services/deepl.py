@@ -21,7 +21,7 @@ class DeeplStatusPageCheck(BaseCheck):
     """Represent `DeeplStatusPageCheck`."""
 
     check_key = "deepl_status_page"
-    endpoint_key = "https://status.deepl.com/api/v2/status.json"
+    endpoint_key = "https://deepl.statuspage.io/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -231,7 +231,7 @@ class DeeplServiceChecker(BaseServiceChecker):
 
     service_key = "deepl"
     logo_url = "https://cdn.simpleicons.org/deepl"
-    official_uptime = "https://status.deepl.com/"
+    official_uptime = "https://deepl.statuspage.io/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

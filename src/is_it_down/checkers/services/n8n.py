@@ -54,7 +54,7 @@ class N8NStatusPageCheck(HtmlMarkerCheck):
     """Represent `N8NStatusPageCheck`."""
 
     check_key = "n8n_status_page"
-    endpoint_key = "https://status.n8n.io/"
+    endpoint_key = "https://n8n.statuspage.io/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.15
@@ -66,7 +66,7 @@ class N8NServiceChecker(BaseServiceChecker):
 
     service_key = "n8n"
     logo_url = "https://img.logo.dev/n8n.io?token=pk_Ob37anqtSYSOl80OeGoACA"
-    official_uptime = "https://status.n8n.io/"
+    official_uptime = "https://n8n.statuspage.io/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

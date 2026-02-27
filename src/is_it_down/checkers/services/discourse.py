@@ -9,7 +9,6 @@ import httpx
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
-    apply_statuspage_indicator,
     json_dict_or_none,
     response_latency_ms,
     safe_get,
@@ -22,7 +21,7 @@ class DiscourseStatusCheck(BaseCheck):
     """Represent `DiscourseStatusCheck`."""
 
     check_key = "discourse_status"
-    endpoint_key = "https://status.discourse.org/api/v2/status.json"
+    endpoint_key = "https://status.discourse.org/1.0/status/5e2141ce30dc5c04b3ac32fc"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -45,22 +44,27 @@ class DiscourseStatusCheck(BaseCheck):
             if payload is None:
                 status = "degraded"
             else:
-                status_block = payload.get("status")
-                indicator: str | None = None
-                if isinstance(status_block, dict):
-                    raw_indicator = status_block.get("indicator")
-                    raw_description = status_block.get("description")
-                    if isinstance(raw_indicator, str):
-                        indicator = raw_indicator
-                    if isinstance(raw_description, str):
-                        metadata["description"] = raw_description
+                result = payload.get("result")
+                overall_status_code: int | None = None
+                if isinstance(result, dict):
+                    status_overall = result.get("status_overall")
+                    if isinstance(status_overall, dict):
+                        raw_status_code = status_overall.get("status_code")
+                        if isinstance(raw_status_code, int):
+                            overall_status_code = raw_status_code
+                        overall_status_label = status_overall.get("status")
+                        if isinstance(overall_status_label, str):
+                            metadata["overall_status"] = overall_status_label
+                if overall_status_code is None:
+                    status = "degraded"
                 else:
-                    status = "degraded"
-
-                metadata["indicator"] = indicator
-                status = apply_statuspage_indicator(status, indicator)
-                if indicator is None:
-                    status = "degraded"
+                    metadata["overall_status_code"] = overall_status_code
+                    if overall_status_code == 100:
+                        status = "up"
+                    elif overall_status_code >= 300:
+                        status = "down"
+                    else:
+                        status = "degraded"
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
         return CheckResult(
@@ -77,7 +81,7 @@ class DiscourseSummaryCheck(BaseCheck):
     """Represent `DiscourseSummaryCheck`."""
 
     check_key = "discourse_summary"
-    endpoint_key = "https://status.discourse.org/api/v2/summary.json"
+    endpoint_key = "https://status.discourse.org/1.0/status/5e2141ce30dc5c04b3ac32fc"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -100,10 +104,28 @@ class DiscourseSummaryCheck(BaseCheck):
             if payload is None:
                 status = "degraded"
             else:
-                components = payload.get("components")
-                incidents = payload.get("incidents")
-                metadata["components_count"] = len(components) if isinstance(components, list) else None
-                metadata["incidents_count"] = len(incidents) if isinstance(incidents, list) else None
+                result = payload.get("result")
+                services: list[dict[str, Any]] = []
+                if isinstance(result, dict):
+                    raw_services = result.get("status")
+                    if isinstance(raw_services, list):
+                        services = [item for item in raw_services if isinstance(item, dict)]
+
+                metadata["service_count"] = len(services)
+                degraded_services = [
+                    service
+                    for service in services
+                    if isinstance(service.get("status_code"), int) and service.get("status_code") != 100
+                ]
+                metadata["degraded_service_count"] = len(degraded_services)
+
+                if any(
+                    isinstance(service.get("status_code"), int) and service.get("status_code") >= 300
+                    for service in degraded_services
+                ):
+                    status = "down"
+                elif degraded_services:
+                    status = "degraded"
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
         return CheckResult(
@@ -120,7 +142,7 @@ class DiscourseComponentsCheck(BaseCheck):
     """Represent `DiscourseComponentsCheck`."""
 
     check_key = "discourse_components"
-    endpoint_key = "https://status.discourse.org/api/v2/components.json"
+    endpoint_key = "https://status.discourse.org/1.0/status/5e2141ce30dc5c04b3ac32fc"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -142,8 +164,32 @@ class DiscourseComponentsCheck(BaseCheck):
             if payload is None:
                 status = "degraded"
             else:
-                components = payload.get("components")
-                metadata["components_count"] = len(components) if isinstance(components, list) else None
+                result = payload.get("result")
+                services: list[dict[str, Any]] = []
+                if isinstance(result, dict):
+                    raw_services = result.get("status")
+                    if isinstance(raw_services, list):
+                        services = [item for item in raw_services if isinstance(item, dict)]
+
+                container_count = 0
+                degraded_container_count = 0
+                for service in services:
+                    containers = service.get("containers")
+                    if not isinstance(containers, list):
+                        continue
+                    for container in containers:
+                        if not isinstance(container, dict):
+                            continue
+                        container_count += 1
+                        container_status_code = container.get("status_code")
+                        if isinstance(container_status_code, int) and container_status_code != 100:
+                            degraded_container_count += 1
+
+                metadata["container_count"] = container_count
+                metadata["degraded_container_count"] = degraded_container_count
+
+                if degraded_container_count > 0:
+                    status = "degraded"
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
         return CheckResult(

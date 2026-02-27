@@ -9,7 +9,6 @@ import httpx
 from is_it_down.checkers.base import BaseCheck, BaseServiceChecker
 from is_it_down.checkers.utils import (
     add_non_up_debug_metadata,
-    apply_statuspage_indicator,
     json_dict_or_none,
     response_latency_ms,
     status_from_http,
@@ -21,7 +20,7 @@ class VultrStatusPageCheck(BaseCheck):
     """Represent `VultrStatusPageCheck`."""
 
     check_key = "vultr_status_page"
-    endpoint_key = "https://status.vultr.com/api/v2/status.json"
+    endpoint_key = "https://status.vultr.com/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -44,21 +43,35 @@ class VultrStatusPageCheck(BaseCheck):
             if payload is None:
                 status = "degraded"
             else:
-                status_block = payload.get("status")
-                indicator: str | None = None
-                if isinstance(status_block, dict):
-                    raw_indicator = status_block.get("indicator")
-                    raw_description = status_block.get("description")
-                    if isinstance(raw_indicator, str):
-                        indicator = raw_indicator
-                    if isinstance(raw_description, str):
-                        metadata["description"] = raw_description
-                else:
-                    status = "degraded"
+                service_alerts = payload.get("service_alerts")
+                unresolved_alerts = 0
+                if isinstance(service_alerts, list):
+                    unresolved_alerts += sum(
+                        1
+                        for alert in service_alerts
+                        if isinstance(alert, dict) and str(alert.get("status", "")).strip().lower() != "resolved"
+                    )
 
-                metadata["indicator"] = indicator
-                status = apply_statuspage_indicator(status, indicator)
-                if indicator is None:
+                regions = payload.get("regions")
+                unresolved_region_alerts = 0
+                if isinstance(regions, dict):
+                    for region in regions.values():
+                        if not isinstance(region, dict):
+                            continue
+                        alerts = region.get("alerts")
+                        if not isinstance(alerts, list):
+                            continue
+                        unresolved_region_alerts += sum(
+                            1
+                            for alert in alerts
+                            if isinstance(alert, dict) and str(alert.get("status", "")).strip().lower() != "resolved"
+                        )
+
+                metadata["unresolved_service_alert_count"] = unresolved_alerts
+                metadata["unresolved_region_alert_count"] = unresolved_region_alerts
+
+                total_unresolved = unresolved_alerts + unresolved_region_alerts
+                if total_unresolved > 0:
                     status = "degraded"
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)

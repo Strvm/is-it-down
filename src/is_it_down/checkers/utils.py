@@ -10,6 +10,20 @@ from is_it_down.core.models import ServiceStatus
 
 _STATUSPAGE_DEGRADED: Final[set[str]] = {"minor", "major", "maintenance"}
 _STATUSPAGE_DOWN: Final[set[str]] = {"critical"}
+_ACCESS_CHALLENGE_MARKERS: Final[tuple[str, ...]] = (
+    "just a moment",
+    "verifying your connection",
+    "attention required",
+    "request blocked",
+    "access denied",
+    "captcha",
+    "cloudflare",
+    "security checkpoint",
+    "security check",
+    "bot detection",
+    "too many requests",
+    "rate limit",
+)
 
 
 def json_dict_or_none(response: httpx.Response) -> dict[str, Any] | None:
@@ -69,6 +83,13 @@ def status_from_http(response: httpx.Response) -> ServiceStatus:
     Returns:
         The resulting value.
     """
+    if response.status_code in {401, 403, 429}:
+        try:
+            page_text = response.text.lower()
+        except Exception:
+            page_text = ""
+        if any(marker in page_text for marker in _ACCESS_CHALLENGE_MARKERS):
+            return "up"
     if response.status_code >= 500:
         return "down"
     if response.status_code >= 400:

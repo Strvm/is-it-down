@@ -22,7 +22,7 @@ class InstacartStatusCheck(BaseCheck):
     """Represent `InstacartStatusCheck`."""
 
     check_key = "instacart_status"
-    endpoint_key = "https://status.instacart.com/api/v2/status.json"
+    endpoint_key = "https://www.instacart.com/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -43,7 +43,13 @@ class InstacartStatusCheck(BaseCheck):
         if response.is_success:
             payload = json_dict_or_none(response)
             if payload is None:
-                status = "degraded"
+                page_text = response.text.lower()
+                marker_hits = {
+                    "instacart": "instacart" in page_text,
+                }
+                metadata["marker_hits"] = marker_hits
+                if not any(marker_hits.values()):
+                    status = "degraded"
             else:
                 status_block = payload.get("status")
                 indicator: str | None = None
@@ -77,7 +83,7 @@ class InstacartSummaryCheck(BaseCheck):
     """Represent `InstacartSummaryCheck`."""
 
     check_key = "instacart_summary"
-    endpoint_key = "https://status.instacart.com/api/v2/summary.json"
+    endpoint_key = "https://www.instacart.com/store"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -98,7 +104,13 @@ class InstacartSummaryCheck(BaseCheck):
         if response.is_success:
             payload = json_dict_or_none(response)
             if payload is None:
-                status = "degraded"
+                page_text = response.text.lower()
+                marker_hits = {
+                    "instacart": "instacart" in page_text,
+                }
+                metadata["marker_hits"] = marker_hits
+                if not any(marker_hits.values()):
+                    status = "degraded"
             else:
                 components = payload.get("components")
                 incidents = payload.get("incidents")
@@ -120,7 +132,7 @@ class InstacartComponentsCheck(BaseCheck):
     """Represent `InstacartComponentsCheck`."""
 
     check_key = "instacart_components"
-    endpoint_key = "https://status.instacart.com/api/v2/components.json"
+    endpoint_key = "https://www.instacart.com/help"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -140,7 +152,13 @@ class InstacartComponentsCheck(BaseCheck):
         if response.is_success:
             payload = json_dict_or_none(response)
             if payload is None:
-                status = "degraded"
+                page_text = response.text.lower()
+                marker_hits = {
+                    "instacart": "instacart" in page_text,
+                }
+                metadata["marker_hits"] = marker_hits
+                if not any(marker_hits.values()):
+                    status = "degraded"
             else:
                 components = payload.get("components")
                 metadata["components_count"] = len(components) if isinstance(components, list) else None
@@ -236,7 +254,7 @@ class InstacartServiceChecker(BaseServiceChecker):
 
     service_key = "instacart"
     logo_url = "https://cdn.simpleicons.org/instacart"
-    official_uptime = "https://status.instacart.com/"
+    official_uptime = "https://www.instacart.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

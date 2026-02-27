@@ -57,6 +57,7 @@ class NuGetApiV3IndexCheck(HtmlMarkerCheck):
     endpoint_key = "https://api.nuget.org/v3/index.json"
     interval_seconds = 60
     timeout_seconds = 5.0
+    required_content_type_fragment = None
     weight = 0.15
     expected_markers = ("version",)
 

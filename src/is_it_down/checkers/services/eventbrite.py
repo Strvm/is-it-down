@@ -22,7 +22,7 @@ class EventbriteStatusCheck(BaseCheck):
     """Represent `EventbriteStatusCheck`."""
 
     check_key = "eventbrite_status"
-    endpoint_key = "https://status.eventbrite.com/api/v2/status.json"
+    endpoint_key = "https://eventbrite.statuspage.io/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -77,7 +77,7 @@ class EventbriteSummaryCheck(BaseCheck):
     """Represent `EventbriteSummaryCheck`."""
 
     check_key = "eventbrite_summary"
-    endpoint_key = "https://status.eventbrite.com/api/v2/summary.json"
+    endpoint_key = "https://eventbrite.statuspage.io/api/v2/summary.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -120,7 +120,7 @@ class EventbriteComponentsCheck(BaseCheck):
     """Represent `EventbriteComponentsCheck`."""
 
     check_key = "eventbrite_components"
-    endpoint_key = "https://status.eventbrite.com/api/v2/components.json"
+    endpoint_key = "https://eventbrite.statuspage.io/api/v2/components.json"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -236,7 +236,7 @@ class EventbriteServiceChecker(BaseServiceChecker):
 
     service_key = "eventbrite"
     logo_url = "https://img.logo.dev/eventbrite.com?token=pk_Ob37anqtSYSOl80OeGoACA"
-    official_uptime = "https://status.eventbrite.com/"
+    official_uptime = "https://eventbrite.statuspage.io/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

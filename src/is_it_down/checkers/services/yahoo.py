@@ -54,7 +54,7 @@ class YahooStatusPageCheck(HtmlMarkerCheck):
     """Represent `YahooStatusPageCheck`."""
 
     check_key = "yahoo_status_page"
-    endpoint_key = "https://status.yahoo.com/"
+    endpoint_key = "https://yahoo.statuspage.io/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.15
@@ -66,7 +66,7 @@ class YahooServiceChecker(BaseServiceChecker):
 
     service_key = "yahoo"
     logo_url = "https://img.logo.dev/yahoo.com?token=pk_Ob37anqtSYSOl80OeGoACA"
-    official_uptime = "https://status.yahoo.com/"
+    official_uptime = "https://yahoo.statuspage.io/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

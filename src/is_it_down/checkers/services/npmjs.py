@@ -57,6 +57,7 @@ class NpmjsRegistryWebCheck(HtmlMarkerCheck):
     endpoint_key = "https://registry.npmjs.org/react"
     interval_seconds = 60
     timeout_seconds = 5.0
+    required_content_type_fragment = None
     weight = 0.15
     expected_markers = ("name",)
 

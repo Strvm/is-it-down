@@ -21,7 +21,7 @@ class SupersetDocsCheck(HtmlMarkerCheck):
     """Represent `SupersetDocsCheck`."""
 
     check_key = "superset_docs"
-    endpoint_key = "https://superset.apache.org/docs/intro"
+    endpoint_key = "https://superset.apache.org/user-docs/intro"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -54,7 +54,7 @@ class SupersetStatusPageCheck(HtmlMarkerCheck):
     """Represent `SupersetStatusPageCheck`."""
 
     check_key = "superset_status_page"
-    endpoint_key = "https://status.superset.apache.org/"
+    endpoint_key = "https://superset.statuspage.io/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.15
@@ -66,7 +66,7 @@ class SupersetServiceChecker(BaseServiceChecker):
 
     service_key = "superset"
     logo_url = "https://img.logo.dev/superset.apache.org?token=pk_Ob37anqtSYSOl80OeGoACA"
-    official_uptime = "https://status.superset.apache.org/"
+    official_uptime = "https://superset.statuspage.io/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

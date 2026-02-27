@@ -57,6 +57,7 @@ class PackagistApiSearchCheck(HtmlMarkerCheck):
     endpoint_key = "https://packagist.org/search.json?q=laravel"
     interval_seconds = 60
     timeout_seconds = 5.0
+    required_content_type_fragment = None
     weight = 0.15
     expected_markers = ("results",)
 

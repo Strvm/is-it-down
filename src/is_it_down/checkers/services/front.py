@@ -54,7 +54,7 @@ class FrontStatusPageCheck(HtmlMarkerCheck):
     """Represent `FrontStatusPageCheck`."""
 
     check_key = "front_status_page"
-    endpoint_key = "https://status.front.com/"
+    endpoint_key = "https://front.statuspage.io/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.15
@@ -66,7 +66,7 @@ class FrontServiceChecker(BaseServiceChecker):
 
     service_key = "front"
     logo_url = "https://img.logo.dev/front.com?token=pk_Ob37anqtSYSOl80OeGoACA"
-    official_uptime = "https://status.front.com/"
+    official_uptime = "https://front.statuspage.io/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

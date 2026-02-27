@@ -43,7 +43,7 @@ class GhostStatusPageCheck(HtmlMarkerCheck):
     """Represent `GhostStatusPageCheck`."""
 
     check_key = "ghost_status_page"
-    endpoint_key = "https://www.ghoststatus.com/"
+    endpoint_key = "https://ghost.statuspage.io/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -66,7 +66,7 @@ class GhostServiceChecker(BaseServiceChecker):
 
     service_key = "ghost"
     logo_url = "https://img.logo.dev/ghost.org?token=pk_Ob37anqtSYSOl80OeGoACA"
-    official_uptime = "https://www.ghoststatus.com/"
+    official_uptime = "https://ghost.statuspage.io/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

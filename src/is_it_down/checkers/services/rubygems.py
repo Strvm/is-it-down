@@ -57,6 +57,7 @@ class RubyGemsApiVersionsCheck(HtmlMarkerCheck):
     endpoint_key = "https://rubygems.org/api/v1/versions/rails.json"
     interval_seconds = 60
     timeout_seconds = 5.0
+    required_content_type_fragment = None
     weight = 0.15
     expected_markers = ("number",)
 

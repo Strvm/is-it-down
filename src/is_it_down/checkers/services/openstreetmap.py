@@ -22,7 +22,7 @@ class OpenstreetmapStatusCheck(BaseCheck):
     """Represent `OpenstreetmapStatusCheck`."""
 
     check_key = "openstreetmap_status"
-    endpoint_key = "https://status.openstreetmap.org/api/v2/status.json"
+    endpoint_key = "https://uptime.openstreetmap.org/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -43,7 +43,14 @@ class OpenstreetmapStatusCheck(BaseCheck):
         if response.is_success:
             payload = json_dict_or_none(response)
             if payload is None:
-                status = "degraded"
+                page_text = response.text.lower()
+                marker_hits = {
+                    "openstreetmap": "openstreetmap" in page_text,
+                    "uptime": "uptime" in page_text,
+                }
+                metadata["marker_hits"] = marker_hits
+                if not any(marker_hits.values()):
+                    status = "degraded"
             else:
                 status_block = payload.get("status")
                 indicator: str | None = None
@@ -77,7 +84,7 @@ class OpenstreetmapSummaryCheck(BaseCheck):
     """Represent `OpenstreetmapSummaryCheck`."""
 
     check_key = "openstreetmap_summary"
-    endpoint_key = "https://status.openstreetmap.org/api/v2/summary.json"
+    endpoint_key = "https://uptime.openstreetmap.org/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -98,7 +105,14 @@ class OpenstreetmapSummaryCheck(BaseCheck):
         if response.is_success:
             payload = json_dict_or_none(response)
             if payload is None:
-                status = "degraded"
+                page_text = response.text.lower()
+                marker_hits = {
+                    "openstreetmap": "openstreetmap" in page_text,
+                    "uptime": "uptime" in page_text,
+                }
+                metadata["marker_hits"] = marker_hits
+                if not any(marker_hits.values()):
+                    status = "degraded"
             else:
                 components = payload.get("components")
                 incidents = payload.get("incidents")
@@ -120,7 +134,7 @@ class OpenstreetmapComponentsCheck(BaseCheck):
     """Represent `OpenstreetmapComponentsCheck`."""
 
     check_key = "openstreetmap_components"
-    endpoint_key = "https://status.openstreetmap.org/api/v2/components.json"
+    endpoint_key = "https://uptime.openstreetmap.org/"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -140,7 +154,14 @@ class OpenstreetmapComponentsCheck(BaseCheck):
         if response.is_success:
             payload = json_dict_or_none(response)
             if payload is None:
-                status = "degraded"
+                page_text = response.text.lower()
+                marker_hits = {
+                    "openstreetmap": "openstreetmap" in page_text,
+                    "uptime": "uptime" in page_text,
+                }
+                metadata["marker_hits"] = marker_hits
+                if not any(marker_hits.values()):
+                    status = "degraded"
             else:
                 components = payload.get("components")
                 metadata["components_count"] = len(components) if isinstance(components, list) else None
@@ -236,7 +257,7 @@ class OpenstreetmapServiceChecker(BaseServiceChecker):
 
     service_key = "openstreetmap"
     logo_url = "https://cdn.simpleicons.org/openstreetmap"
-    official_uptime = "https://status.openstreetmap.org/"
+    official_uptime = "https://uptime.openstreetmap.org/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

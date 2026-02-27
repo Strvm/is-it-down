@@ -21,7 +21,7 @@ class ResendStatusPageCheck(BaseCheck):
     """Represent `ResendStatusPageCheck`."""
 
     check_key = "resend_status_page"
-    endpoint_key = "https://status.resend.com/api/v2/status.json"
+    endpoint_key = "https://resend-status.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -231,7 +231,7 @@ class ResendServiceChecker(BaseServiceChecker):
 
     service_key = "resend"
     logo_url = "https://cdn.simpleicons.org/resend"
-    official_uptime = "https://status.resend.com/"
+    official_uptime = "https://resend-status.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

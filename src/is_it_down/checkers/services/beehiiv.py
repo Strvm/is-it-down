@@ -21,7 +21,7 @@ class BeehiivStatusPageCheck(BaseCheck):
     """Represent `BeehiivStatusPageCheck`."""
 
     check_key = "beehiiv_status_page"
-    endpoint_key = "https://status.beehiiv.com/api/v2/status.json"
+    endpoint_key = "https://www.beehiivstatus.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -231,7 +231,7 @@ class BeehiivServiceChecker(BaseServiceChecker):
 
     service_key = "beehiiv"
     logo_url = "https://cdn.simpleicons.org/beehiiv"
-    official_uptime = "https://status.beehiiv.com/"
+    official_uptime = "https://www.beehiivstatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
