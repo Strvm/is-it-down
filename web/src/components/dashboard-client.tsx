@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Activity, AlertTriangle, Search } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
@@ -116,7 +117,9 @@ function buildTrendChartRows(
 }
 
 export function DashboardClient({ services, incidents, uptimes, checkerTrends }: Props) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
+  const prefetchedSlugsRef = useRef(new Set<string>());
   const normalizedSearch = search.trim().toLowerCase();
 
   const filteredServices = useMemo(() => {
@@ -184,6 +187,25 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
   const openIncidents = filteredIncidents.filter((incident) => incident.status === "open").length;
   const criticalSignals = filteredServices.filter((service) => (service.severity_level ?? 0) >= 4).length;
   const dependencySignals = filteredServices.filter((service) => service.dependency_impacted).length;
+
+  useEffect(() => {
+    // Prefetch the most visible service detail routes so card clicks transition instantly.
+    for (const trend of filteredCheckerTrends.slice(0, 24)) {
+      if (prefetchedSlugsRef.current.has(trend.slug)) {
+        continue;
+      }
+      prefetchedSlugsRef.current.add(trend.slug);
+      router.prefetch(`/services/${trend.slug}`);
+    }
+  }, [filteredCheckerTrends, router]);
+
+  function prefetchService(slug: string) {
+    if (prefetchedSlugsRef.current.has(slug)) {
+      return;
+    }
+    prefetchedSlugsRef.current.add(slug);
+    router.prefetch(`/services/${slug}`);
+  }
 
   return (
     <main className="grid-glow relative mx-auto flex w-full max-w-[96rem] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
@@ -294,6 +316,10 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
               <Link
                 key={serviceTrend.slug}
                 href={`/services/${serviceTrend.slug}`}
+                prefetch
+                onMouseEnter={() => prefetchService(serviceTrend.slug)}
+                onFocus={() => prefetchService(serviceTrend.slug)}
+                onTouchStart={() => prefetchService(serviceTrend.slug)}
                 className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
               >
                 <Card className="fade-in-up flex h-full flex-col transition-all hover:-translate-y-0.5 hover:border-teal-400/70 hover:shadow-md">

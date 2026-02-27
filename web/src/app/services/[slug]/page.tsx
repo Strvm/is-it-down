@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { Suspense, cache } from "react";
 
 import { ServiceDetailAnalytics } from "@/components/service-detail-analytics";
 import { StatusBadge } from "@/components/status-badge";
@@ -17,32 +18,91 @@ type Props = {
   }>;
 };
 
+type ServiceSectionProps = {
+  slug: string;
+};
+
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString();
 }
 
-export default async function ServiceDetailPage({ params }: Props) {
-  const { slug } = await params;
-
-  let detail;
+const getServiceDetailForPage = cache(async (slug: string) => {
   try {
-    detail = await getServiceDetail(slug);
+    return await getServiceDetail(slug);
   } catch (error) {
     if (isApiError(error) && error.status === 404) {
       notFound();
     }
     throw error;
   }
+});
 
-  const [history, checkerTrend] = await Promise.all([
-    getServiceHistory(slug, "24h"),
-    getServiceCheckerTrend(slug, "24h"),
-  ]);
+const getServiceHistoryForPage = cache(async (slug: string) => getServiceHistory(slug, "24h"));
+const getServiceCheckerTrendForPage = cache(async (slug: string) => getServiceCheckerTrend(slug, "24h"));
+
+function ServiceOverviewSkeleton() {
+  return (
+    <>
+      <div className="fade-in-up flex items-start justify-between gap-4">
+        <div className="h-9 w-20 animate-pulse rounded-md bg-slate-200" />
+        <div className="min-w-0 space-y-2 text-right">
+          <div className="flex items-center justify-end gap-3">
+            <div className="h-10 w-10 animate-pulse rounded-md bg-slate-200" />
+            <div className="h-9 w-48 animate-pulse rounded bg-slate-200" />
+            <div className="h-6 w-20 animate-pulse rounded bg-slate-200" />
+          </div>
+          <div className="ml-auto h-4 w-72 animate-pulse rounded bg-slate-200" />
+        </div>
+      </div>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+      </section>
+    </>
+  );
+}
+
+function ServiceAnalyticsSkeleton() {
+  return (
+    <section className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+        <div className="h-28 animate-pulse rounded-xl bg-slate-200" />
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="h-80 animate-pulse rounded-xl bg-slate-200" />
+        <div className="h-80 animate-pulse rounded-xl bg-slate-200" />
+      </div>
+    </section>
+  );
+}
+
+function ServiceChecksSkeleton() {
+  return (
+    <Card className="fade-in-up">
+      <CardHeader>
+        <div className="h-6 w-32 animate-pulse rounded bg-slate-200" />
+        <div className="h-4 w-72 animate-pulse rounded bg-slate-200" />
+      </CardHeader>
+      <CardContent>
+        <div className="h-64 animate-pulse rounded bg-slate-200" />
+      </CardContent>
+    </Card>
+  );
+}
+
+async function ServiceOverviewSection({ slug }: ServiceSectionProps) {
+  const detail = await getServiceDetailForPage(slug);
   const likelyRelatedServices = detail.likely_related_services ?? [];
   const hasLikelyRelatedServices = likelyRelatedServices.length > 0;
 
   return (
-    <main className="grid-glow mx-auto flex w-full max-w-[96rem] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+    <>
       <div className="fade-in-up flex items-start justify-between gap-4">
         <Button asChild variant="secondary">
           <Link href="/">
@@ -149,39 +209,73 @@ export default async function ServiceDetailPage({ params }: Props) {
           </CardHeader>
         </Card>
       </section>
+    </>
+  );
+}
 
-      <ServiceDetailAnalytics history={history} checkerTrend={checkerTrend} />
+async function ServiceAnalyticsSection({ slug }: ServiceSectionProps) {
+  await getServiceDetailForPage(slug);
+  const [history, checkerTrend] = await Promise.all([
+    getServiceHistoryForPage(slug),
+    getServiceCheckerTrendForPage(slug),
+  ]);
 
-      <Card className="fade-in-up">
-        <CardHeader>
-          <CardTitle>Latest Checks</CardTitle>
-          <CardDescription>Latest result per check key from the backend.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Check</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Observed</TableHead>
-                <TableHead>Latency</TableHead>
-                <TableHead>HTTP</TableHead>
+  return <ServiceDetailAnalytics history={history} checkerTrend={checkerTrend} />;
+}
+
+async function ServiceChecksSection({ slug }: ServiceSectionProps) {
+  const detail = await getServiceDetailForPage(slug);
+
+  return (
+    <Card className="fade-in-up">
+      <CardHeader>
+        <CardTitle>Latest Checks</CardTitle>
+        <CardDescription>Latest result per check key from the backend.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Check</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Observed</TableHead>
+              <TableHead>Latency</TableHead>
+              <TableHead>HTTP</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {detail.latest_checks.map((check) => (
+              <TableRow key={check.check_key}>
+                <TableCell className="font-medium">{check.check_key}</TableCell>
+                <TableCell className="capitalize">{check.status}</TableCell>
+                <TableCell className="text-xs">{formatDateTime(check.observed_at)}</TableCell>
+                <TableCell>{check.latency_ms ? `${check.latency_ms}ms` : "-"}</TableCell>
+                <TableCell>{check.http_status ?? "-"}</TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {detail.latest_checks.map((check) => (
-                <TableRow key={check.check_key}>
-                  <TableCell className="font-medium">{check.check_key}</TableCell>
-                  <TableCell className="capitalize">{check.status}</TableCell>
-                  <TableCell className="text-xs">{formatDateTime(check.observed_at)}</TableCell>
-                  <TableCell>{check.latency_ms ? `${check.latency_ms}ms` : "-"}</TableCell>
-                  <TableCell>{check.http_status ?? "-"}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default async function ServiceDetailPage({ params }: Props) {
+  const { slug } = await params;
+
+  return (
+    <main className="grid-glow mx-auto flex w-full max-w-[96rem] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+      <Suspense fallback={<ServiceOverviewSkeleton />}>
+        <ServiceOverviewSection slug={slug} />
+      </Suspense>
+
+      <Suspense fallback={<ServiceAnalyticsSkeleton />}>
+        <ServiceAnalyticsSection slug={slug} />
+      </Suspense>
+
+      <Suspense fallback={<ServiceChecksSkeleton />}>
+        <ServiceChecksSection slug={slug} />
+      </Suspense>
     </main>
   );
 }

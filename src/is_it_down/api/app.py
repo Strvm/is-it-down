@@ -49,10 +49,12 @@ def main() -> None:
     """Run the entrypoint."""
     settings = get_settings()
     configure_logging(settings.log_level)
+    reload_enabled = settings.env == "local"
     uvicorn.run(
         "is_it_down.api.app:app",
         host=settings.api_host,
         port=settings.api_port,
-        reload=settings.env == "local",
+        reload=reload_enabled,
+        reload_dirs=["src/is_it_down"] if reload_enabled else None,
         factory=False,
     )
