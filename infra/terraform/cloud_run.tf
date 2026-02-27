@@ -115,6 +115,41 @@ resource "google_cloud_run_v2_job" "checker" {
           name  = "IS_IT_DOWN_DEFAULT_CHECKER_PROXY_SECRET_ID"
           value = var.checker_proxy_secret_id
         }
+
+        env {
+          name  = "IS_IT_DOWN_REDIS_SECRET_PROJECT_ID"
+          value = var.project[terraform.workspace]
+        }
+
+        env {
+          name  = "IS_IT_DOWN_API_CACHE_REDIS_SECRET_ID"
+          value = var.api_cache_redis_secret_id
+        }
+
+        env {
+          name  = "IS_IT_DOWN_API_CACHE_ENABLED"
+          value = tostring(var.api_cache_enabled)
+        }
+
+        env {
+          name  = "IS_IT_DOWN_API_CACHE_TTL_SECONDS"
+          value = tostring(var.api_cache_ttl_seconds)
+        }
+
+        env {
+          name  = "IS_IT_DOWN_API_CACHE_KEY_PREFIX"
+          value = var.api_cache_key_prefix
+        }
+
+        env {
+          name  = "IS_IT_DOWN_API_CACHE_WARM_ON_CHECKER_JOB"
+          value = tostring(var.api_cache_warm_on_checker_job)
+        }
+
+        env {
+          name  = "IS_IT_DOWN_API_CACHE_WARM_IMPACTED_SERVICE_LIMIT"
+          value = tostring(var.api_cache_warm_impacted_service_limit)
+        }
       }
     }
   }
@@ -125,6 +160,8 @@ resource "google_cloud_run_v2_job" "checker" {
     google_bigquery_table.check_results,
     google_secret_manager_secret.checker_proxy,
     google_secret_manager_secret_iam_member.checker_proxy_accessor,
+    google_secret_manager_secret.api_cache_redis,
+    google_secret_manager_secret_iam_member.api_cache_redis_accessor_checker,
     google_project_iam_member.checker_bigquery_data_editor,
     google_project_iam_member.checker_bigquery_job_user,
   ]
@@ -150,6 +187,11 @@ module "cloud_run_api_service" {
     IS_IT_DOWN_BIGQUERY_TABLE_ID            = var.bigquery_table_id
     IS_IT_DOWN_TRACKING_BIGQUERY_DATASET_ID = var.tracking_bigquery_dataset_id
     IS_IT_DOWN_TRACKING_BIGQUERY_TABLE_ID   = var.tracking_bigquery_table_id
+    IS_IT_DOWN_REDIS_SECRET_PROJECT_ID      = var.project[terraform.workspace]
+    IS_IT_DOWN_API_CACHE_REDIS_SECRET_ID    = var.api_cache_redis_secret_id
+    IS_IT_DOWN_API_CACHE_ENABLED            = tostring(var.api_cache_enabled)
+    IS_IT_DOWN_API_CACHE_TTL_SECONDS        = tostring(var.api_cache_ttl_seconds)
+    IS_IT_DOWN_API_CACHE_KEY_PREFIX         = var.api_cache_key_prefix
   }
 
   depends_on = [
@@ -157,6 +199,8 @@ module "cloud_run_api_service" {
     google_artifact_registry_repository.checker_images,
     google_bigquery_table.check_results,
     google_bigquery_table.service_detail_views,
+    google_secret_manager_secret.api_cache_redis,
+    google_secret_manager_secret_iam_member.api_cache_redis_accessor_api,
     google_project_iam_member.api_bigquery_data_viewer,
     google_project_iam_member.api_bigquery_data_editor,
     google_project_iam_member.api_bigquery_job_user,

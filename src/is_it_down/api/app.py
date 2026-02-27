@@ -3,6 +3,7 @@
 import uvicorn
 from fastapi import FastAPI
 
+from is_it_down.api.cache import close_api_response_cache
 from is_it_down.api.routes.incidents import router as incidents_router
 from is_it_down.api.routes.services import router as services_router
 from is_it_down.api.routes.stream import router as stream_router
@@ -28,6 +29,11 @@ def create_app() -> FastAPI:
             The resulting value.
         """
         return {"status": "ok"}
+
+    @app.on_event("shutdown")
+    async def shutdown_cache() -> None:
+        """Shutdown cache."""
+        await close_api_response_cache()
 
     app.include_router(services_router)
     app.include_router(incidents_router)

@@ -11,6 +11,7 @@ from uuid import uuid4
 import structlog
 from google.cloud import bigquery
 
+from is_it_down.api.cache_warm import warm_api_cache
 from is_it_down.checkers.base import BaseServiceChecker, ServiceRunResult
 from is_it_down.checkers.proxy import clear_proxy_resolution_cache
 from is_it_down.logging import configure_logging
@@ -226,6 +227,12 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
 
     if not dry_run:
         _insert_rows(rows)
+        if settings.api_cache_enabled and settings.api_cache_warm_on_checker_job:
+            try:
+                warmed_key_count = await warm_api_cache()
+                logger.info("checker_job.cache_warm_completed", warmed_key_count=warmed_key_count)
+            except Exception:
+                logger.warning("checker_job.cache_warm_failed", exc_info=True)
 
     if strict and _has_non_up_result(runs):
         raise SystemExit(1)

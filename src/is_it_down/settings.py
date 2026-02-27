@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     proxy_secret_project_id: str | None = None
     default_checker_proxy_url: str | None = None
     default_checker_proxy_secret_id: str | None = None
+    redis_secret_project_id: str | None = None
+    api_cache_redis_secret_id: str | None = None
+    api_cache_redis_url: str | None = None
+    api_cache_enabled: bool = True
+    api_cache_ttl_seconds: int = 60
+    api_cache_key_prefix: str = "is-it-down:api:v1"
+    api_cache_warm_on_checker_job: bool = True
+    api_cache_warm_impacted_service_limit: int = 25
 
     api_host: str = "0.0.0.0"
     api_port: int = 8080
