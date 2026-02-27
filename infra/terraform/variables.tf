@@ -151,11 +151,6 @@ variable "checker_job_task_count" {
   default = 4
 }
 
-variable "checker_task_batch_size" {
-  type    = number
-  default = 50
-}
-
 variable "api_cache_enabled" {
   type    = bool
   default = true

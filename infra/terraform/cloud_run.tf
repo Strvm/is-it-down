@@ -92,11 +92,6 @@ resource "google_cloud_run_v2_job" "checker" {
         }
 
         env {
-          name  = "IS_IT_DOWN_CHECKER_TASK_BATCH_SIZE"
-          value = tostring(var.checker_task_batch_size)
-        }
-
-        env {
           name  = "IS_IT_DOWN_BIGQUERY_PROJECT_ID"
           value = var.project[terraform.workspace]
         }

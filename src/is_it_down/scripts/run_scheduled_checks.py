@@ -123,7 +123,6 @@ def _shard_service_checker_classes(
     *,
     task_index: int,
     task_count: int,
-    checkers_per_task: int,
 ) -> list[type[BaseServiceChecker]]:
     """Shard service checker classes for a Cloud Run Job task.
 
@@ -131,29 +130,24 @@ def _shard_service_checker_classes(
         service_checker_classes: All checker classes sorted in deterministic order.
         task_index: The zero-based Cloud Run Job task index.
         task_count: The total number of Cloud Run Job tasks for this execution.
-        checkers_per_task: Maximum number of checkers in each shard batch.
 
     Returns:
         The checker classes assigned to this task.
 
     Raises:
-        RuntimeError: If there are not enough Cloud Run tasks for the configured batch size.
-        ValueError: If `task_count` or `checkers_per_task` is not positive.
+        ValueError: If `task_count` is not positive.
     """
     if task_count <= 0:
         raise ValueError("task_count must be greater than 0.")
-    if checkers_per_task <= 0:
-        raise ValueError("checkers_per_task must be greater than 0.")
 
-    required_task_count = (len(service_checker_classes) + checkers_per_task - 1) // checkers_per_task
-    if task_count < required_task_count:
-        raise RuntimeError(
-            f"Cloud Run task count ({task_count}) is too small for {len(service_checker_classes)} service checkers "
-            f"with checkers_per_task={checkers_per_task}. Increase task_count to at least {required_task_count}."
-        )
+    total_checker_count = len(service_checker_classes)
+    base_shard_size = total_checker_count // task_count
+    remainder = total_checker_count % task_count
 
-    start = task_index * checkers_per_task
-    end = start + checkers_per_task
+    # Distribute the remainder one-by-one to the first tasks for an even split.
+    shard_size = base_shard_size + (1 if task_index < remainder else 0)
+    start = task_index * base_shard_size + min(task_index, remainder)
+    end = start + shard_size
     return list(service_checker_classes[start:end])
 
 
@@ -180,20 +174,16 @@ def _resolve_service_checker_classes(
         return service_checker_classes
 
     task_index, task_count = task_metadata
-    settings = get_settings()
-    checkers_per_task = max(1, settings.checker_task_batch_size)
     sharded_service_checker_classes = _shard_service_checker_classes(
         service_checker_classes,
         task_index=task_index,
         task_count=task_count,
-        checkers_per_task=checkers_per_task,
     )
 
     logger.info(
         "checker_job.task_shard_assigned",
         cloud_run_task_index=task_index,
         cloud_run_task_count=task_count,
-        checkers_per_task=checkers_per_task,
         total_checker_count=len(service_checker_classes),
         assigned_checker_count=len(sharded_service_checker_classes),
     )

@@ -131,9 +131,6 @@ def test_resolve_cloud_run_task_metadata_returns_none_without_env(monkeypatch: p
 
 
 def test_resolve_service_checker_classes_shards_by_task(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("IS_IT_DOWN_CHECKER_TASK_BATCH_SIZE", "2")
-    _reset_settings_cache()
-
     checkers = {
         key: _build_dummy_checker(key)
         for key in ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"]
@@ -149,20 +146,22 @@ def test_resolve_service_checker_classes_shards_by_task(monkeypatch: pytest.Monk
     assert [checker.service_key for checker in task_two] == ["echo", "foxtrot"]
 
 
-def test_resolve_service_checker_classes_raises_when_task_count_too_low(
+def test_resolve_service_checker_classes_evenly_distributes_remainder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("IS_IT_DOWN_CHECKER_TASK_BATCH_SIZE", "2")
-    _reset_settings_cache()
-
     checkers = {
         key: _build_dummy_checker(key)
-        for key in ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"]
+        for key in ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf"]
     }
     monkeypatch.setattr(run_scheduled_checks, "discover_service_checkers", lambda: checkers)
 
-    with pytest.raises(RuntimeError, match="too small"):
-        run_scheduled_checks._resolve_service_checker_classes([], task_metadata=(0, 2))
+    task_zero = run_scheduled_checks._resolve_service_checker_classes([], task_metadata=(0, 3))
+    task_one = run_scheduled_checks._resolve_service_checker_classes([], task_metadata=(1, 3))
+    task_two = run_scheduled_checks._resolve_service_checker_classes([], task_metadata=(2, 3))
+
+    assert [checker.service_key for checker in task_zero] == ["alpha", "bravo", "charlie"]
+    assert [checker.service_key for checker in task_one] == ["delta", "echo"]
+    assert [checker.service_key for checker in task_two] == ["foxtrot", "golf"]
 
 
 @pytest.mark.asyncio

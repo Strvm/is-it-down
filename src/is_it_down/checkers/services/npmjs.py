@@ -54,12 +54,12 @@ class NpmjsRegistryWebCheck(HtmlMarkerCheck):
     """Represent `NpmjsRegistryWebCheck`."""
 
     check_key = "npmjs_registryweb"
-    endpoint_key = "https://registry.npmjs.org/react"
+    endpoint_key = "https://registry.npmjs.org/react/latest"
     interval_seconds = 60
     timeout_seconds = 5.0
     required_content_type_fragment = None
     weight = 0.15
-    expected_markers = ("name",)
+    expected_markers = ("name", "version")
 
 
 class NpmjsServiceChecker(BaseServiceChecker):
