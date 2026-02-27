@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import LoadingServiceDetail from "@/app/services/[slug]/loading";
 import { Activity, AlertTriangle, Search } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
@@ -121,6 +122,7 @@ function buildTrendChartRows(
 export function DashboardClient({ services, incidents, uptimes, checkerTrends }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
   const prefetchedAtBySlugRef = useRef(new Map<string, number>());
   const normalizedSearch = search.trim().toLowerCase();
 
@@ -205,6 +207,13 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
     }
   }, [filteredCheckerTrends, router]);
 
+  // Safety: if navigation errors out and this component stays mounted, clear the skeleton.
+  useEffect(() => {
+    if (navigatingTo === null) return;
+    const id = window.setTimeout(() => setNavigatingTo(null), 8_000);
+    return () => window.clearTimeout(id);
+  }, [navigatingTo]);
+
   function prefetchService(slug: string, force = false) {
     const lastPrefetchedAt = prefetchedAtBySlugRef.current.get(slug);
     if (!force && lastPrefetchedAt && Date.now() - lastPrefetchedAt < PREFETCH_REFRESH_MS) {
@@ -212,6 +221,21 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
     }
     prefetchedAtBySlugRef.current.set(slug, Date.now());
     router.prefetch(`/services/${slug}`);
+  }
+
+  function handleCardClick(e: React.MouseEvent, slug: string) {
+    e.preventDefault();
+    setNavigatingTo(slug);
+    router.push(`/services/${slug}`);
+  }
+
+  // Show the service-detail skeleton immediately on click — before any network round-trip.
+  // React 19 + Next.js uses startTransition internally which holds the old UI until the
+  // new route is ready, so loading.tsx never shows during the wait. By rendering the
+  // skeleton here (pure client-side state, zero latency) we give instant visual feedback
+  // regardless of whether the route is in the router cache or not.
+  if (navigatingTo !== null) {
+    return <LoadingServiceDetail />;
   }
 
   return (
@@ -324,6 +348,7 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
                 key={serviceTrend.slug}
                 href={`/services/${serviceTrend.slug}`}
                 prefetch
+                onClick={(e) => handleCardClick(e, serviceTrend.slug)}
                 onMouseEnter={() => prefetchService(serviceTrend.slug)}
                 onFocus={() => prefetchService(serviceTrend.slug)}
                 onTouchStart={() => prefetchService(serviceTrend.slug)}
