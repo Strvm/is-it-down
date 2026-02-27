@@ -12,6 +12,7 @@ from is_it_down.checkers.utils import (
     apply_statuspage_indicator,
     json_dict_or_none,
     response_latency_ms,
+    safe_get,
     status_from_http,
 )
 from is_it_down.core.models import CheckResult
@@ -21,7 +22,7 @@ class DoordashStatusCheck(BaseCheck):
     """Represent `DoordashStatusCheck`."""
 
     check_key = "doordash_status"
-    endpoint_key = "https://status.doordash.com/api/v2/status.json"
+    endpoint_key = "https://www.doordashstatus.com/api/v2/status.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.35
@@ -35,7 +36,7 @@ class DoordashStatusCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
@@ -76,7 +77,7 @@ class DoordashSummaryCheck(BaseCheck):
     """Represent `DoordashSummaryCheck`."""
 
     check_key = "doordash_summary"
-    endpoint_key = "https://status.doordash.com/api/v2/summary.json"
+    endpoint_key = "https://www.doordashstatus.com/api/v2/summary.json"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -90,7 +91,7 @@ class DoordashSummaryCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
@@ -119,7 +120,7 @@ class DoordashComponentsCheck(BaseCheck):
     """Represent `DoordashComponentsCheck`."""
 
     check_key = "doordash_components"
-    endpoint_key = "https://status.doordash.com/api/v2/components.json"
+    endpoint_key = "https://www.doordashstatus.com/api/v2/components.json"
     interval_seconds = 60
     timeout_seconds = 5.0
 
@@ -132,7 +133,7 @@ class DoordashComponentsCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
@@ -172,7 +173,7 @@ class DoordashHomepageCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         content_type = response.headers.get("content-type", "")
         metadata: dict[str, Any] = {"content_type": content_type, "body_chars": len(response.text)}
@@ -211,7 +212,7 @@ class DoordashRobotsCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         content_type = response.headers.get("content-type", "")
         metadata: dict[str, Any] = {"content_type": content_type, "body_chars": len(response.text)}
@@ -235,7 +236,7 @@ class DoordashServiceChecker(BaseServiceChecker):
 
     service_key = "doordash"
     logo_url = "https://cdn.simpleicons.org/doordash"
-    official_uptime = "https://status.doordash.com/"
+    official_uptime = "https://www.doordashstatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:

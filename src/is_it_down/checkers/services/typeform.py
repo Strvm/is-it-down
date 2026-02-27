@@ -12,6 +12,7 @@ from is_it_down.checkers.utils import (
     apply_statuspage_indicator,
     json_dict_or_none,
     response_latency_ms,
+    safe_get,
     status_from_http,
 )
 from is_it_down.core.models import CheckResult
@@ -35,7 +36,7 @@ class TypeformStatusCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
@@ -90,7 +91,7 @@ class TypeformSummaryCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
@@ -132,7 +133,7 @@ class TypeformComponentsCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         metadata: dict[str, Any] = {}
 
@@ -172,7 +173,7 @@ class TypeformHomepageCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         content_type = response.headers.get("content-type", "")
         metadata: dict[str, Any] = {"content_type": content_type, "body_chars": len(response.text)}
@@ -211,7 +212,7 @@ class TypeformRobotsCheck(BaseCheck):
         Returns:
             The resulting value.
         """
-        response = await client.get(self.endpoint_key)
+        response = await safe_get(client, self.endpoint_key)
         status = status_from_http(response)
         content_type = response.headers.get("content-type", "")
         metadata: dict[str, Any] = {"content_type": content_type, "body_chars": len(response.text)}

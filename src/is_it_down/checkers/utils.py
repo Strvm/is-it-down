@@ -1,6 +1,7 @@
 """Provide functionality for `is_it_down.checkers.utils`."""
 
 import json
+from datetime import timedelta
 from typing import Any, Final
 
 import httpx
@@ -181,3 +182,48 @@ def add_non_up_debug_metadata(
         build_response_debug_blob(response, body_char_limit=body_char_limit),
     )
     return metadata
+
+
+async def safe_get(client: httpx.AsyncClient, url: str, **kwargs: Any) -> httpx.Response:
+    """Issue a GET request with a direct-network fallback for proxy failures.
+
+    Args:
+        client: The client value.
+        url: The url value.
+        **kwargs: Additional keyword arguments for the request.
+
+    Returns:
+        The resulting value.
+    """
+    request = client.build_request("GET", url, **kwargs)
+
+    try:
+        return await client.send(request)
+    except httpx.ProxyError:
+        try:
+            async with httpx.AsyncClient(
+                timeout=client.timeout,
+                headers=dict(client.headers),
+                follow_redirects=client.follow_redirects,
+                trust_env=False,
+            ) as direct_client:
+                direct_request = direct_client.build_request("GET", url, **kwargs)
+                return await direct_client.send(direct_request)
+        except httpx.HTTPError as exc:
+            response = httpx.Response(
+                status_code=599,
+                request=request,
+                text=str(exc),
+                headers={"content-type": "text/plain; charset=utf-8"},
+            )
+            response.elapsed = timedelta(0)
+            return response
+    except httpx.HTTPError as exc:
+        response = httpx.Response(
+            status_code=599,
+            request=request,
+            text=str(exc),
+            headers={"content-type": "text/plain; charset=utf-8"},
+        )
+        response.elapsed = timedelta(0)
+        return response
