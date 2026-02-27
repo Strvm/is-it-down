@@ -38,6 +38,8 @@ type TrendChartRow = {
   [seriesKey: string]: string | number | null;
 };
 
+const PREFETCH_REFRESH_MS = 5_000;
+
 function formatRelative(isoDate: string) {
   return new Date(isoDate).toLocaleString();
 }
@@ -119,7 +121,7 @@ function buildTrendChartRows(
 export function DashboardClient({ services, incidents, uptimes, checkerTrends }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const prefetchedSlugsRef = useRef(new Set<string>());
+  const prefetchedAtBySlugRef = useRef(new Map<string, number>());
   const normalizedSearch = search.trim().toLowerCase();
 
   const filteredServices = useMemo(() => {
@@ -190,9 +192,11 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
 
   useEffect(() => {
     // Prefetch visible service detail routes during idle time to minimize click latency.
-    const pendingSlugs = filteredCheckerTrends
-      .map((trend) => trend.slug)
-      .filter((slug) => !prefetchedSlugsRef.current.has(slug));
+    const now = Date.now();
+    const pendingSlugs = filteredCheckerTrends.map((trend) => trend.slug).filter((slug) => {
+      const lastPrefetchedAt = prefetchedAtBySlugRef.current.get(slug);
+      return !lastPrefetchedAt || now - lastPrefetchedAt >= PREFETCH_REFRESH_MS;
+    });
     if (pendingSlugs.length === 0) {
       return;
     }
@@ -215,7 +219,7 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
       const end = Math.min(index + batchSize, pendingSlugs.length);
       for (; index < end; index += 1) {
         const slug = pendingSlugs[index];
-        prefetchedSlugsRef.current.add(slug);
+        prefetchedAtBySlugRef.current.set(slug, Date.now());
         router.prefetch(`/services/${slug}`);
       }
       if (index < pendingSlugs.length) {
@@ -247,11 +251,12 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
     };
   }, [filteredCheckerTrends, router]);
 
-  function prefetchService(slug: string) {
-    if (prefetchedSlugsRef.current.has(slug)) {
+  function prefetchService(slug: string, force = false) {
+    const lastPrefetchedAt = prefetchedAtBySlugRef.current.get(slug);
+    if (!force && lastPrefetchedAt && Date.now() - lastPrefetchedAt < PREFETCH_REFRESH_MS) {
       return;
     }
-    prefetchedSlugsRef.current.add(slug);
+    prefetchedAtBySlugRef.current.set(slug, Date.now());
     router.prefetch(`/services/${slug}`);
   }
 
@@ -368,6 +373,7 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
                 onMouseEnter={() => prefetchService(serviceTrend.slug)}
                 onFocus={() => prefetchService(serviceTrend.slug)}
                 onTouchStart={() => prefetchService(serviceTrend.slug)}
+                onPointerDown={() => prefetchService(serviceTrend.slug, true)}
                 className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
               >
                 <Card className="fade-in-up flex h-full flex-col transition-all hover:-translate-y-0.5 hover:border-teal-400/70 hover:shadow-md">
