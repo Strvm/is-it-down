@@ -235,7 +235,7 @@ class EventbriteServiceChecker(BaseServiceChecker):
     """Represent `EventbriteServiceChecker`."""
 
     service_key = "eventbrite"
-    logo_url = "https://cdn.simpleicons.org/eventbrite"
+    logo_url = "https://img.logo.dev/eventbrite.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.eventbrite.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

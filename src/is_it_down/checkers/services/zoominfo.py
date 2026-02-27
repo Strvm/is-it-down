@@ -235,7 +235,7 @@ class ZoominfoServiceChecker(BaseServiceChecker):
     """Represent `ZoominfoServiceChecker`."""
 
     service_key = "zoominfo"
-    logo_url = "https://cdn.simpleicons.org/zoominfo"
+    logo_url = "https://img.logo.dev/zoominfo.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.zoominfo.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

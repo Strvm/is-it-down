@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import LoadingServiceDetail from "@/app/services/[slug]/loading";
 import { Activity, AlertTriangle, Search } from "lucide-react";
@@ -40,6 +40,9 @@ type TrendChartRow = {
 };
 
 const PREFETCH_REFRESH_MS = 5_000;
+const INITIAL_VISIBLE_CARDS = 18;
+const VISIBLE_CARDS_STEP = 12;
+const PREFETCH_LOOKAHEAD = 6;
 
 function formatRelative(isoDate: string) {
   return new Date(isoDate).toLocaleString();
@@ -119,12 +122,145 @@ function buildTrendChartRows(
     .filter((row): row is TrendChartRow => row !== undefined);
 }
 
+type ServiceTrendCardProps = {
+  serviceTrend: ServiceCheckerTrendSummary;
+  summary?: ServiceSummary;
+  serviceUptime?: ServiceUptimeSummary;
+  onCardClick: (event: React.MouseEvent, slug: string) => void;
+  onWarmPrefetch: (slug: string) => void;
+  onForcePrefetch: (slug: string) => void;
+};
+
+const ServiceTrendCard = memo(function ServiceTrendCard({
+  serviceTrend,
+  summary,
+  serviceUptime,
+  onCardClick,
+  onWarmPrefetch,
+  onForcePrefetch,
+}: ServiceTrendCardProps) {
+  const { checkKeys, series, chartConfig, chartRows } = useMemo(() => {
+    const uptimeChecks = serviceUptime?.checks ?? [];
+    const checkKeys = Array.from(
+      new Set([
+        ...uptimeChecks.map((check) => check.check_key),
+        ...serviceTrend.points.map((point) => point.check_key),
+      ]),
+    ).sort();
+    const scoreByCheck = new Map(uptimeChecks.map((check) => [check.check_key, check.health_score]));
+    const series = buildSeries(checkKeys, scoreByCheck);
+    const chartConfig = series.reduce((acc, item) => {
+      acc[item.dataKey] = {
+        label: item.checkKey,
+        color: item.color,
+      };
+      return acc;
+    }, {} as ChartConfig);
+    const chartRows = buildTrendChartRows(serviceTrend.points, series);
+    return { checkKeys, series, chartConfig, chartRows };
+  }, [serviceTrend.points, serviceUptime?.checks]);
+
+  return (
+    <Link
+      href={`/services/${serviceTrend.slug}`}
+      prefetch
+      onClick={(event) => onCardClick(event, serviceTrend.slug)}
+      onMouseEnter={() => onWarmPrefetch(serviceTrend.slug)}
+      onFocus={() => onWarmPrefetch(serviceTrend.slug)}
+      onTouchStart={() => onWarmPrefetch(serviceTrend.slug)}
+      onPointerDown={() => onForcePrefetch(serviceTrend.slug)}
+      className="block h-full min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+    >
+      <Card className="fade-in-up flex h-full min-w-0 flex-col transition-all hover:-translate-y-0.5 hover:border-teal-400/70 hover:shadow-md">
+        <CardHeader>
+          <CardTitle className="flex flex-wrap items-center gap-2.5 text-base sm:flex-nowrap sm:gap-3">
+            <img
+              src={serviceTrend.logo_url}
+              alt={`${serviceTrend.name} logo`}
+              className="h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-white p-1"
+              loading="lazy"
+              decoding="async"
+            />
+            <span className="min-w-0 flex-1 truncate">{serviceTrend.name}</span>
+            {summary ? (
+              <Badge variant={scoreBandTone(summary.score_band)} className="shrink-0">
+                {formatSignalLabel(summary.score_band || summary.status)}
+              </Badge>
+            ) : null}
+          </CardTitle>
+          <CardDescription>24h checker uptime lines ({serviceTrend.slug}).</CardDescription>
+          {summary ? (
+            <CardDescription>
+              Severity {summary.severity_level ?? "-"} • {formatSignalLabel(summary.status_detail)}
+            </CardDescription>
+          ) : null}
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col">
+          {checkKeys.length === 0 || chartRows.length === 0 ? (
+            <p className="text-sm text-slate-600">No checker trend points available yet.</p>
+          ) : (
+            <>
+              <div className="mb-3 max-w-full overflow-x-auto pb-1">
+                <div className="flex min-w-max gap-2">
+                  {series.map((item) => (
+                    <span
+                      key={`${serviceTrend.slug}-${item.dataKey}`}
+                      className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px]"
+                    >
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                      <span className="font-medium">{item.checkKey}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="h-[220px] w-full flex-none sm:h-[240px]">
+                <ChartContainer config={chartConfig} className="h-full w-full">
+                  <LineChart
+                    accessibilityLayer
+                    data={chartRows}
+                    margin={{ top: 10, right: 12, left: 0, bottom: 10 }}
+                  >
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={18} />
+                    <YAxis
+                      domain={[0, 100]}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `${value}%`}
+                    />
+                    <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                    {series.map((item) => (
+                      <Line
+                        key={`${serviceTrend.slug}-${item.dataKey}-line`}
+                        type="monotone"
+                        dataKey={item.dataKey}
+                        stroke={item.color}
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ChartContainer>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
+  );
+});
+
 export function DashboardClient({ services, incidents, uptimes, checkerTrends }: Props) {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_CARDS);
   const prefetchedAtBySlugRef = useRef(new Map<string, number>());
-  const normalizedSearch = search.trim().toLowerCase();
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const normalizedSearch = deferredSearch.trim().toLowerCase();
 
   const filteredServices = useMemo(() => {
     if (!normalizedSearch) {
@@ -177,6 +313,18 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
         return left.slug.localeCompare(right.slug);
       });
   }, [checkerTrends, filteredServices, normalizedSearch, serviceRankBySlug]);
+  const visibleCheckerTrends = useMemo(
+    () => filteredCheckerTrends.slice(0, visibleCount),
+    [filteredCheckerTrends, visibleCount],
+  );
+  const hasMoreServices = visibleCheckerTrends.length < filteredCheckerTrends.length;
+  const prefetchCandidates = useMemo(() => {
+    const prefetchLimit = Math.min(
+      filteredCheckerTrends.length,
+      visibleCheckerTrends.length + PREFETCH_LOOKAHEAD,
+    );
+    return filteredCheckerTrends.slice(0, prefetchLimit);
+  }, [filteredCheckerTrends, visibleCheckerTrends.length]);
 
   const serviceBySlug = useMemo(
     () => new Map(filteredServices.map((service) => [service.slug, service])),
@@ -186,11 +334,48 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
     () => new Map(filteredUptimes.map((service) => [service.slug, service])),
     [filteredUptimes],
   );
+  const counters = useMemo(() => serviceCounters(filteredServices), [filteredServices]);
+  const openIncidents = useMemo(
+    () => filteredIncidents.filter((incident) => incident.status === "open").length,
+    [filteredIncidents],
+  );
+  const criticalSignals = useMemo(
+    () => filteredServices.filter((service) => (service.severity_level ?? 0) >= 4).length,
+    [filteredServices],
+  );
+  const dependencySignals = useMemo(
+    () => filteredServices.filter((service) => service.dependency_impacted).length,
+    [filteredServices],
+  );
 
-  const counters = serviceCounters(filteredServices);
-  const openIncidents = filteredIncidents.filter((incident) => incident.status === "open").length;
-  const criticalSignals = filteredServices.filter((service) => (service.severity_level ?? 0) >= 4).length;
-  const dependencySignals = filteredServices.filter((service) => service.dependency_impacted).length;
+  useEffect(() => {
+    if (!hasMoreServices) {
+      return;
+    }
+    const target = loadMoreRef.current;
+    if (!target) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) {
+            continue;
+          }
+          setVisibleCount((current) =>
+            Math.min(current + VISIBLE_CARDS_STEP, filteredCheckerTrends.length),
+          );
+        }
+      },
+      {
+        rootMargin: "900px 0px 300px 0px",
+      },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [filteredCheckerTrends.length, hasMoreServices]);
 
   useEffect(() => {
     // Prefetch visible service detail routes immediately on mount to minimise click latency.
@@ -198,14 +383,14 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
     // re-mounts but the user can click a card before the idle callback fires. router.prefetch()
     // is async and non-blocking, so calling it directly has no UI impact.
     const now = Date.now();
-    for (const { slug } of filteredCheckerTrends) {
+    for (const { slug } of prefetchCandidates) {
       const lastPrefetchedAt = prefetchedAtBySlugRef.current.get(slug);
       if (!lastPrefetchedAt || now - lastPrefetchedAt >= PREFETCH_REFRESH_MS) {
         prefetchedAtBySlugRef.current.set(slug, Date.now());
         router.prefetch(`/services/${slug}`);
       }
     }
-  }, [filteredCheckerTrends, router]);
+  }, [prefetchCandidates, router]);
 
   // Safety: if navigation errors out and this component stays mounted, clear the skeleton.
   useEffect(() => {
@@ -214,20 +399,27 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
     return () => window.clearTimeout(id);
   }, [navigatingTo]);
 
-  function prefetchService(slug: string, force = false) {
+  const prefetchService = useCallback((slug: string, force = false) => {
     const lastPrefetchedAt = prefetchedAtBySlugRef.current.get(slug);
     if (!force && lastPrefetchedAt && Date.now() - lastPrefetchedAt < PREFETCH_REFRESH_MS) {
       return;
     }
     prefetchedAtBySlugRef.current.set(slug, Date.now());
     router.prefetch(`/services/${slug}`);
-  }
+  }, [router]);
 
-  function handleCardClick(e: React.MouseEvent, slug: string) {
-    e.preventDefault();
+  const warmPrefetchService = useCallback((slug: string) => {
+    prefetchService(slug);
+  }, [prefetchService]);
+  const forcePrefetchService = useCallback((slug: string) => {
+    prefetchService(slug, true);
+  }, [prefetchService]);
+
+  const handleCardClick = useCallback((event: React.MouseEvent, slug: string) => {
+    event.preventDefault();
     setNavigatingTo(slug);
     router.push(`/services/${slug}`);
-  }
+  }, [router]);
 
   // Show the service-detail skeleton immediately on click — before any network round-trip.
   // React 19 + Next.js uses startTransition internally which holds the old UI until the
@@ -264,11 +456,17 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-500" />
             <Input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setVisibleCount(INITIAL_VISIBLE_CARDS);
+              }}
               placeholder="Search by name or slug..."
               className="pl-9"
             />
           </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Loaded {visibleCheckerTrends.length} of {filteredCheckerTrends.length} service charts.
+          </p>
         </CardContent>
       </Card>
 
@@ -320,131 +518,29 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
             </CardHeader>
           </Card>
         ) : (
-          filteredCheckerTrends.map((serviceTrend) => {
+          visibleCheckerTrends.map((serviceTrend) => {
             const summary = serviceBySlug.get(serviceTrend.slug);
             const serviceUptime = uptimeBySlug.get(serviceTrend.slug);
-            const checkKeys = Array.from(
-              new Set([
-                ...(serviceUptime?.checks.map((check) => check.check_key) ?? []),
-                ...serviceTrend.points.map((point) => point.check_key),
-              ]),
-            ).sort();
-
-            const scoreByCheck = new Map(
-              (serviceUptime?.checks ?? []).map((check) => [check.check_key, check.health_score]),
-            );
-            const series = buildSeries(checkKeys, scoreByCheck);
-            const chartConfig = series.reduce((acc, item) => {
-              acc[item.dataKey] = {
-                label: item.checkKey,
-                color: item.color,
-              };
-              return acc;
-            }, {} as ChartConfig);
-            const chartRows = buildTrendChartRows(serviceTrend.points, series);
-
             return (
-              <Link
+              <ServiceTrendCard
                 key={serviceTrend.slug}
-                href={`/services/${serviceTrend.slug}`}
-                prefetch
-                onClick={(e) => handleCardClick(e, serviceTrend.slug)}
-                onMouseEnter={() => prefetchService(serviceTrend.slug)}
-                onFocus={() => prefetchService(serviceTrend.slug)}
-                onTouchStart={() => prefetchService(serviceTrend.slug)}
-                onPointerDown={() => prefetchService(serviceTrend.slug, true)}
-                className="block h-full min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-              >
-                <Card className="fade-in-up flex h-full min-w-0 flex-col transition-all hover:-translate-y-0.5 hover:border-teal-400/70 hover:shadow-md">
-                  <CardHeader>
-                    <CardTitle className="flex flex-wrap items-center gap-2.5 text-base sm:flex-nowrap sm:gap-3">
-                      <img
-                        src={serviceTrend.logo_url}
-                        alt={`${serviceTrend.name} logo`}
-                        className="h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-white p-1"
-                        loading="lazy"
-                      />
-                      <span className="min-w-0 flex-1 truncate">{serviceTrend.name}</span>
-                      {summary ? (
-                        <Badge variant={scoreBandTone(summary.score_band)} className="shrink-0">
-                          {formatSignalLabel(summary.score_band || summary.status)}
-                        </Badge>
-                      ) : null}
-                    </CardTitle>
-                    <CardDescription>
-                      24h checker uptime lines ({serviceTrend.slug}).
-                    </CardDescription>
-                    {summary ? (
-                      <CardDescription>
-                        Severity {summary.severity_level ?? "-"} • {formatSignalLabel(summary.status_detail)}
-                      </CardDescription>
-                    ) : null}
-                  </CardHeader>
-                  <CardContent className="flex flex-1 flex-col">
-                    {checkKeys.length === 0 || chartRows.length === 0 ? (
-                      <p className="text-sm text-slate-600">No checker trend points available yet.</p>
-                    ) : (
-                      <>
-                        <div className="mb-3 max-w-full overflow-x-auto pb-1">
-                          <div className="flex min-w-max gap-2">
-                            {series.map((item) => (
-                              <span
-                                key={`${serviceTrend.slug}-${item.dataKey}`}
-                                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px]"
-                              >
-                                <span
-                                  className="h-2 w-2 rounded-full"
-                                  style={{ backgroundColor: item.color }}
-                                />
-                                <span className="font-medium">{item.checkKey}</span>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="h-[220px] w-full flex-none sm:h-[240px]">
-                          <ChartContainer config={chartConfig} className="h-full w-full">
-                            <LineChart
-                              accessibilityLayer
-                              data={chartRows}
-                              margin={{ top: 10, right: 12, left: 0, bottom: 10 }}
-                            >
-                              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                              <XAxis
-                                dataKey="label"
-                                tickLine={false}
-                                axisLine={false}
-                                minTickGap={18}
-                              />
-                              <YAxis
-                                domain={[0, 100]}
-                                tickLine={false}
-                                axisLine={false}
-                                tickFormatter={(value) => `${value}%`}
-                              />
-                              <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
-                              {series.map((item) => (
-                                <Line
-                                  key={`${serviceTrend.slug}-${item.dataKey}-line`}
-                                  type="monotone"
-                                  dataKey={item.dataKey}
-                                  stroke={item.color}
-                                  strokeWidth={2}
-                                  dot={false}
-                                  activeDot={{ r: 4 }}
-                                  connectNulls
-                                />
-                              ))}
-                            </LineChart>
-                          </ChartContainer>
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
+                serviceTrend={serviceTrend}
+                summary={summary}
+                serviceUptime={serviceUptime}
+                onCardClick={handleCardClick}
+                onWarmPrefetch={warmPrefetchService}
+                onForcePrefetch={forcePrefetchService}
+              />
             );
           })
         )}
+        {hasMoreServices ? (
+          <div ref={loadMoreRef} className="col-span-full py-2 text-center">
+            <p className="text-xs text-slate-500">
+              Loading more services... ({visibleCheckerTrends.length}/{filteredCheckerTrends.length})
+            </p>
+          </div>
+        ) : null}
       </section>
 
       <Card className="fade-in-up">

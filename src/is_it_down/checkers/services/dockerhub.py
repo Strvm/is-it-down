@@ -230,7 +230,7 @@ class DockerHubServiceChecker(BaseServiceChecker):
     """Represent `DockerHubServiceChecker`."""
 
     service_key = "dockerhub"
-    logo_url = "https://cdn.simpleicons.org/dockerhub"
+    logo_url = "https://img.logo.dev/docker.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://www.dockerstatus.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

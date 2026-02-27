@@ -28,9 +28,14 @@ function getApiBaseUrl(): string {
 }
 
 async function fetchJson<T>(path: string, revalidate = 20): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    next: { revalidate },
-  });
+  const response = await fetch(
+    `${getApiBaseUrl()}${path}`,
+    revalidate <= 0
+      ? { cache: "no-store" }
+      : {
+          next: { revalidate },
+        },
+  );
 
   if (!response.ok) {
     throw new ApiError(
@@ -68,7 +73,7 @@ export async function getServiceCheckerTrends(
 ): Promise<ServiceCheckerTrendSummary[]> {
   return fetchJson<ServiceCheckerTrendSummary[]>(
     `/v1/services/checker-trends?window=${encodeURIComponent(window)}`,
-    20,
+    0,
   );
 }
 

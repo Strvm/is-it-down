@@ -230,7 +230,7 @@ class ConvertkitServiceChecker(BaseServiceChecker):
     """Represent `ConvertkitServiceChecker`."""
 
     service_key = "convertkit"
-    logo_url = "https://cdn.simpleicons.org/convertkit"
+    logo_url = "https://img.logo.dev/converkit.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.kit.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

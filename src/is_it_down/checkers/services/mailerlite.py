@@ -230,7 +230,7 @@ class MailerliteServiceChecker(BaseServiceChecker):
     """Represent `MailerliteServiceChecker`."""
 
     service_key = "mailerlite"
-    logo_url = "https://cdn.simpleicons.org/mailerlite"
+    logo_url = "https://img.logo.dev/mailerlite.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.mailerlite.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

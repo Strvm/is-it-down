@@ -230,7 +230,7 @@ class FastmailServiceChecker(BaseServiceChecker):
     """Represent `FastmailServiceChecker`."""
 
     service_key = "fastmail"
-    logo_url = "https://cdn.simpleicons.org/fastmail"
+    logo_url = "https://img.logo.dev/fastmail.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.fastmail.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

@@ -235,7 +235,7 @@ class CanaryServiceChecker(BaseServiceChecker):
     """Represent `CanaryServiceChecker`."""
 
     service_key = "canary"
-    logo_url = "https://cdn.simpleicons.org/canary"
+    logo_url = "https://img.logo.dev/canary.tools?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.canary.tools/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

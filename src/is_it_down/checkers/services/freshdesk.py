@@ -230,7 +230,7 @@ class FreshdeskServiceChecker(BaseServiceChecker):
     """Represent `FreshdeskServiceChecker`."""
 
     service_key = "freshdesk"
-    logo_url = "https://cdn.simpleicons.org/freshdesk"
+    logo_url = "https://img.logo.dev/gofreshdesk.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://updates.freshdesk.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

@@ -230,7 +230,7 @@ class LinodeServiceChecker(BaseServiceChecker):
     """Represent `LinodeServiceChecker`."""
 
     service_key = "linode"
-    logo_url = "https://cdn.simpleicons.org/linode"
+    logo_url = "https://img.logo.dev/linode.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.linode.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

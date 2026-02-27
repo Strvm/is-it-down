@@ -235,7 +235,7 @@ class WikimediaServiceChecker(BaseServiceChecker):
     """Represent `WikimediaServiceChecker`."""
 
     service_key = "wikimedia"
-    logo_url = "https://cdn.simpleicons.org/wikimedia"
+    logo_url = "https://img.logo.dev/wikimedia.org?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.wikimedia.org/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 

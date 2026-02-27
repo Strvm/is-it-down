@@ -235,7 +235,7 @@ class ShippoServiceChecker(BaseServiceChecker):
     """Represent `ShippoServiceChecker`."""
 
     service_key = "shippo"
-    logo_url = "https://cdn.simpleicons.org/shippo"
+    logo_url = "https://img.logo.dev/goshippo.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.goshippo.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
