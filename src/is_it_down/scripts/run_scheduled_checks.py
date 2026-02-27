@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import os
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -24,6 +25,8 @@ from is_it_down.scripts.checker_runtime import (
 from is_it_down.settings import get_settings
 
 logger = structlog.get_logger(__name__)
+_CLOUD_RUN_TASK_INDEX_ENV = "CLOUD_RUN_TASK_INDEX"
+_CLOUD_RUN_TASK_COUNT_ENV = "CLOUD_RUN_TASK_COUNT"
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -66,11 +69,104 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _resolve_service_checker_classes(targets: list[str]) -> list[type[BaseServiceChecker]]:
+def _resolve_cloud_run_task_metadata() -> tuple[int, int] | None:
+    """Resolve Cloud Run task metadata.
+
+    Returns:
+        `(task_index, task_count)` when available and valid, otherwise `None`.
+    """
+    task_index_value = os.getenv(_CLOUD_RUN_TASK_INDEX_ENV)
+    task_count_value = os.getenv(_CLOUD_RUN_TASK_COUNT_ENV)
+    if task_index_value is None and task_count_value is None:
+        return None
+
+    if task_index_value is None or task_count_value is None:
+        logger.warning(
+            "checker_job.task_sharding_disabled_missing_task_metadata",
+            cloud_run_task_index=task_index_value,
+            cloud_run_task_count=task_count_value,
+        )
+        return None
+
+    try:
+        task_index = int(task_index_value)
+        task_count = int(task_count_value)
+    except ValueError:
+        logger.warning(
+            "checker_job.task_sharding_disabled_invalid_task_metadata",
+            cloud_run_task_index=task_index_value,
+            cloud_run_task_count=task_count_value,
+        )
+        return None
+
+    if task_count <= 0:
+        logger.warning(
+            "checker_job.task_sharding_disabled_invalid_task_count",
+            cloud_run_task_index=task_index,
+            cloud_run_task_count=task_count,
+        )
+        return None
+
+    if task_index < 0 or task_index >= task_count:
+        logger.warning(
+            "checker_job.task_sharding_disabled_invalid_task_index",
+            cloud_run_task_index=task_index,
+            cloud_run_task_count=task_count,
+        )
+        return None
+
+    return task_index, task_count
+
+
+def _shard_service_checker_classes(
+    service_checker_classes: Sequence[type[BaseServiceChecker]],
+    *,
+    task_index: int,
+    task_count: int,
+    checkers_per_task: int,
+) -> list[type[BaseServiceChecker]]:
+    """Shard service checker classes for a Cloud Run Job task.
+
+    Args:
+        service_checker_classes: All checker classes sorted in deterministic order.
+        task_index: The zero-based Cloud Run Job task index.
+        task_count: The total number of Cloud Run Job tasks for this execution.
+        checkers_per_task: Maximum number of checkers in each shard batch.
+
+    Returns:
+        The checker classes assigned to this task.
+
+    Raises:
+        RuntimeError: If there are not enough Cloud Run tasks for the configured batch size.
+        ValueError: If `task_count` or `checkers_per_task` is not positive.
+    """
+    if task_count <= 0:
+        raise ValueError("task_count must be greater than 0.")
+    if checkers_per_task <= 0:
+        raise ValueError("checkers_per_task must be greater than 0.")
+
+    required_task_count = (len(service_checker_classes) + checkers_per_task - 1) // checkers_per_task
+    if task_count < required_task_count:
+        raise RuntimeError(
+            f"Cloud Run task count ({task_count}) is too small for {len(service_checker_classes)} service checkers "
+            f"with checkers_per_task={checkers_per_task}. Increase task_count to at least {required_task_count}."
+        )
+
+    start = task_index * checkers_per_task
+    end = start + checkers_per_task
+    return list(service_checker_classes[start:end])
+
+
+def _resolve_service_checker_classes(
+    targets: list[str],
+    *,
+    task_metadata: tuple[int, int] | None = None,
+) -> list[type[BaseServiceChecker]]:
     """Resolve service checker classes.
     
     Args:
         targets: The targets value.
+        task_metadata: Optional Cloud Run Job task metadata tuple.
     
     Returns:
         The resulting value.
@@ -79,7 +175,29 @@ def _resolve_service_checker_classes(targets: list[str]) -> list[type[BaseServic
         return resolve_service_checker_targets(targets)
 
     discovered = discover_service_checkers()
-    return [discovered[key] for key in sorted(discovered)]
+    service_checker_classes = [discovered[key] for key in sorted(discovered)]
+    if task_metadata is None:
+        return service_checker_classes
+
+    task_index, task_count = task_metadata
+    settings = get_settings()
+    checkers_per_task = max(1, settings.checker_task_batch_size)
+    sharded_service_checker_classes = _shard_service_checker_classes(
+        service_checker_classes,
+        task_index=task_index,
+        task_count=task_count,
+        checkers_per_task=checkers_per_task,
+    )
+
+    logger.info(
+        "checker_job.task_shard_assigned",
+        cloud_run_task_index=task_index,
+        cloud_run_task_count=task_count,
+        checkers_per_task=checkers_per_task,
+        total_checker_count=len(service_checker_classes),
+        assigned_checker_count=len(sharded_service_checker_classes),
+    )
+    return sharded_service_checker_classes
 
 
 def _build_bigquery_rows_for_run(
@@ -175,14 +293,29 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
 
-    service_checker_classes = _resolve_service_checker_classes(targets)
+    task_metadata = _resolve_cloud_run_task_metadata()
+    service_checker_classes = _resolve_service_checker_classes(targets, task_metadata=task_metadata)
     if not service_checker_classes:
+        if task_metadata is not None and not targets:
+            logger.info(
+                "checker_job.no_assigned_checkers_for_task",
+                cloud_run_task_index=task_metadata[0],
+                cloud_run_task_count=task_metadata[1],
+            )
+            return
         raise RuntimeError("No service checkers discovered.")
+
+    cloud_run_task_index: int | None = None
+    cloud_run_task_count: int | None = None
+    if task_metadata is not None:
+        cloud_run_task_index, cloud_run_task_count = task_metadata
 
     logger.info(
         "checker_job.starting",
         checker_count=len(service_checker_classes),
         dry_run=dry_run,
+        cloud_run_task_index=cloud_run_task_index,
+        cloud_run_task_count=cloud_run_task_count,
     )
 
     run_id = uuid4().hex
@@ -239,12 +372,19 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
     )
 
     if not dry_run:
-        if settings.api_cache_enabled and settings.api_cache_warm_on_checker_job:
+        should_warm_cache = task_metadata is None or task_metadata[0] == 0
+        if settings.api_cache_enabled and settings.api_cache_warm_on_checker_job and should_warm_cache:
             try:
                 warmed_key_count = await warm_api_cache()
                 logger.info("checker_job.cache_warm_completed", warmed_key_count=warmed_key_count)
             except Exception:
                 logger.warning("checker_job.cache_warm_failed", exc_info=True)
+        elif settings.api_cache_enabled and settings.api_cache_warm_on_checker_job:
+            logger.info(
+                "checker_job.cache_warm_skipped_non_primary_task",
+                cloud_run_task_index=cloud_run_task_index,
+                cloud_run_task_count=cloud_run_task_count,
+            )
 
     if strict and has_non_up_result:
         raise SystemExit(1)

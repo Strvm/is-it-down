@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     worker_lease_seconds: int = 30
     worker_max_attempts: int = 3
     checker_concurrency: int = 10
+    checker_task_batch_size: int = 50
     checker_max_response_body_bytes: int = 524288
     checker_max_json_response_body_bytes: int = 1048576
     checker_insert_batch_size: int = 500

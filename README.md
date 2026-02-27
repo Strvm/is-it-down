@@ -133,6 +133,7 @@ Most local contributor workflows only need defaults, but these are commonly used
 - `IS_IT_DOWN_PROXY_SECRET_PROJECT_ID`: GCP project containing checker proxy secrets.
 - `IS_IT_DOWN_DEFAULT_CHECKER_PROXY_SECRET_ID`: default proxy secret ID.
 - `IS_IT_DOWN_CHECKER_CONCURRENCY` (default: `10`)
+- `IS_IT_DOWN_CHECKER_TASK_BATCH_SIZE` (default: `50`; Cloud Run task shard batch size for scheduled checker jobs)
 - `IS_IT_DOWN_CHECKER_MAX_RESPONSE_BODY_BYTES` (default: `524288`)
 - `IS_IT_DOWN_CHECKER_MAX_JSON_RESPONSE_BODY_BYTES` (default: `1048576`)
 - `IS_IT_DOWN_CHECKER_INSERT_BATCH_SIZE` (default: `500`)
@@ -155,6 +156,7 @@ API cache + Redis settings:
 - `IS_IT_DOWN_REDIS_SECRET_PROJECT_ID` (project used when secret ID is short and not fully-qualified)
 - `IS_IT_DOWN_API_CACHE_WARM_ON_CHECKER_JOB` (default: `true`)
 - `IS_IT_DOWN_API_CACHE_WARM_IMPACTED_SERVICE_LIMIT` (default: `25`)
+- `IS_IT_DOWN_API_CACHE_WARM_TOP_VIEWED_SERVICE_LIMIT` (default: `25`)
 
 ## Project Layout
 

@@ -43,6 +43,11 @@ File layout:
 - Cloud Scheduler cron trigger that calls `jobs:run`
 - Service accounts and IAM for runtime/trigger
 
+Checker job defaults:
+
+- `checker_job_task_count = 4` (Cloud Run Job tasks and parallelism)
+- `checker_task_batch_size = 50` (max checker classes per shard batch in each task)
+
 ## Example: dev apply
 
 ```bash

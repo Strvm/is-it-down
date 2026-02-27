@@ -64,8 +64,8 @@ resource "google_cloud_run_v2_job" "checker" {
   location = var.region
 
   template {
-    task_count  = 1
-    parallelism = 1
+    task_count  = var.checker_job_task_count
+    parallelism = var.checker_job_task_count
 
     template {
       service_account = google_service_account.checker_runtime.email
@@ -89,6 +89,11 @@ resource "google_cloud_run_v2_job" "checker" {
         env {
           name  = "IS_IT_DOWN_CHECKER_CONCURRENCY"
           value = tostring(var.checker_concurrency)
+        }
+
+        env {
+          name  = "IS_IT_DOWN_CHECKER_TASK_BATCH_SIZE"
+          value = tostring(var.checker_task_batch_size)
         }
 
         env {
