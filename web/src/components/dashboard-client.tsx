@@ -191,64 +191,18 @@ export function DashboardClient({ services, incidents, uptimes, checkerTrends }:
   const dependencySignals = filteredServices.filter((service) => service.dependency_impacted).length;
 
   useEffect(() => {
-    // Prefetch visible service detail routes during idle time to minimize click latency.
+    // Prefetch visible service detail routes immediately on mount to minimise click latency.
+    // Using requestIdleCallback previously caused a race: after back-navigation the component
+    // re-mounts but the user can click a card before the idle callback fires. router.prefetch()
+    // is async and non-blocking, so calling it directly has no UI impact.
     const now = Date.now();
-    const pendingSlugs = filteredCheckerTrends.map((trend) => trend.slug).filter((slug) => {
+    for (const { slug } of filteredCheckerTrends) {
       const lastPrefetchedAt = prefetchedAtBySlugRef.current.get(slug);
-      return !lastPrefetchedAt || now - lastPrefetchedAt >= PREFETCH_REFRESH_MS;
-    });
-    if (pendingSlugs.length === 0) {
-      return;
-    }
-
-    const idleWindow = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-
-    let canceled = false;
-    let index = 0;
-    let idleId: number | null = null;
-    let timeoutId: number | null = null;
-    const batchSize = 12;
-
-    const runBatch = () => {
-      if (canceled) {
-        return;
-      }
-      const end = Math.min(index + batchSize, pendingSlugs.length);
-      for (; index < end; index += 1) {
-        const slug = pendingSlugs[index];
+      if (!lastPrefetchedAt || now - lastPrefetchedAt >= PREFETCH_REFRESH_MS) {
         prefetchedAtBySlugRef.current.set(slug, Date.now());
         router.prefetch(`/services/${slug}`);
       }
-      if (index < pendingSlugs.length) {
-        schedule();
-      }
-    };
-
-    const schedule = () => {
-      if (canceled) {
-        return;
-      }
-      if (typeof idleWindow.requestIdleCallback === "function") {
-        idleId = idleWindow.requestIdleCallback(runBatch, { timeout: 200 });
-        return;
-      }
-      timeoutId = window.setTimeout(runBatch, 16);
-    };
-
-    schedule();
-
-    return () => {
-      canceled = true;
-      if (idleId !== null && typeof idleWindow.cancelIdleCallback === "function") {
-        idleWindow.cancelIdleCallback(idleId);
-      }
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    };
+    }
   }, [filteredCheckerTrends, router]);
 
   function prefetchService(slug: string, force = false) {
