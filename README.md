@@ -133,6 +133,17 @@ BigQuery settings (for non-dry-run scheduled checks / API integrations):
 - `IS_IT_DOWN_TRACKING_BIGQUERY_DATASET_ID` (default: `is_it_down_tracking`)
 - `IS_IT_DOWN_TRACKING_BIGQUERY_TABLE_ID` (default: `service_detail_views`)
 
+API cache + Redis settings:
+
+- `IS_IT_DOWN_API_CACHE_ENABLED` (default: `true`)
+- `IS_IT_DOWN_API_CACHE_TTL_SECONDS` (default: `60`)
+- `IS_IT_DOWN_API_CACHE_KEY_PREFIX` (default: `is-it-down:api:v1`)
+- `IS_IT_DOWN_API_CACHE_REDIS_URL` (optional direct Redis URL; useful for local development)
+- `IS_IT_DOWN_API_CACHE_REDIS_SECRET_ID` (Secret Manager secret ID/resource for Redis URL)
+- `IS_IT_DOWN_REDIS_SECRET_PROJECT_ID` (project used when secret ID is short and not fully-qualified)
+- `IS_IT_DOWN_API_CACHE_WARM_ON_CHECKER_JOB` (default: `true`)
+- `IS_IT_DOWN_API_CACHE_WARM_IMPACTED_SERVICE_LIMIT` (default: `25`)
+
 ## Project Layout
 
 - `src/is_it_down/checkers`: checker framework, utilities, and service checkers.

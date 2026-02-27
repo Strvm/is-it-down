@@ -43,9 +43,15 @@ export default async function ServiceDetailPage({ params }: Props) {
 
   return (
     <main className="grid-glow mx-auto flex w-full max-w-[96rem] flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="fade-in-up flex items-center justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
+      <div className="fade-in-up flex items-start justify-between gap-4">
+        <Button asChild variant="secondary">
+          <Link href="/">
+            <ArrowLeft />
+            Back
+          </Link>
+        </Button>
+        <div className="min-w-0 space-y-2 text-right">
+          <div className="flex items-center justify-end gap-3">
             <img
               src={detail.logo_url}
               alt={`${detail.name} logo`}
@@ -77,12 +83,6 @@ export default async function ServiceDetailPage({ params }: Props) {
             <p className="text-sm text-slate-600">No extra service description available.</p>
           ) : null}
         </div>
-        <Button asChild variant="secondary">
-          <Link href="/">
-            <ArrowLeft />
-            Back
-          </Link>
-        </Button>
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

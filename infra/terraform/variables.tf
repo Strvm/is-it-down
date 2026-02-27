@@ -88,6 +88,19 @@ variable "checker_proxy_secret_value" {
   description = "Optional initial proxy URL secret payload. Set on first apply to provision a usable secret version."
 }
 
+variable "api_cache_redis_secret_id" {
+  type        = string
+  default     = "api-cache-redis-url"
+  description = "Secret Manager secret ID storing API cache Redis URL."
+}
+
+variable "api_cache_redis_secret_value" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Optional initial Redis URL secret payload. Set on first apply to provision a usable secret version."
+}
+
 variable "bigquery_location" {
   type    = string
   default = "US"
@@ -131,6 +144,31 @@ variable "log_level" {
 variable "checker_concurrency" {
   type    = number
   default = 10
+}
+
+variable "api_cache_enabled" {
+  type    = bool
+  default = true
+}
+
+variable "api_cache_ttl_seconds" {
+  type    = number
+  default = 60
+}
+
+variable "api_cache_key_prefix" {
+  type    = string
+  default = "is-it-down:api:v1"
+}
+
+variable "api_cache_warm_on_checker_job" {
+  type    = bool
+  default = true
+}
+
+variable "api_cache_warm_impacted_service_limit" {
+  type    = number
+  default = 25
 }
 
 variable "custom_domain" {
