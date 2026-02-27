@@ -171,6 +171,11 @@ variable "api_cache_warm_on_checker_job" {
   default = true
 }
 
+variable "api_cache_warm_on_cloud_run_checker_job" {
+  type    = bool
+  default = true
+}
+
 variable "api_cache_warm_impacted_service_limit" {
   type    = number
   default = 25

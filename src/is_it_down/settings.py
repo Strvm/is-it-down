@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     api_cache_ttl_seconds: int = 600
     api_cache_key_prefix: str = "is-it-down:api:v1"
     api_cache_warm_on_checker_job: bool = True
+    api_cache_warm_on_cloud_run_checker_job: bool = True
     api_cache_warm_impacted_service_limit: int = 25
     api_cache_warm_top_viewed_service_limit: int = 25
 

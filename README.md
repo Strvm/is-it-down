@@ -154,6 +154,7 @@ API cache + Redis settings:
 - `IS_IT_DOWN_API_CACHE_REDIS_SECRET_ID` (Secret Manager secret ID/resource for Redis URL)
 - `IS_IT_DOWN_REDIS_SECRET_PROJECT_ID` (project used when secret ID is short and not fully-qualified)
 - `IS_IT_DOWN_API_CACHE_WARM_ON_CHECKER_JOB` (default: `true`)
+- `IS_IT_DOWN_API_CACHE_WARM_ON_CLOUD_RUN_CHECKER_JOB` (default: `true`; set to `false` to disable warming in Cloud Run checker task executions)
 - `IS_IT_DOWN_API_CACHE_WARM_IMPACTED_SERVICE_LIMIT` (default: `25`)
 - `IS_IT_DOWN_API_CACHE_WARM_TOP_VIEWED_SERVICE_LIMIT` (default: `25`)
 

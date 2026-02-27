@@ -362,13 +362,27 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
     )
 
     if not dry_run:
-        should_warm_cache = task_metadata is None or task_metadata[0] == 0
+        is_cloud_run_task_execution = task_metadata is not None
+        should_warm_cache_for_execution_mode = (
+            not is_cloud_run_task_execution or settings.api_cache_warm_on_cloud_run_checker_job
+        )
+        should_warm_cache = (
+            should_warm_cache_for_execution_mode and (task_metadata is None or task_metadata[0] == 0)
+        )
+
         if settings.api_cache_enabled and settings.api_cache_warm_on_checker_job and should_warm_cache:
             try:
                 warmed_key_count = await warm_api_cache()
                 logger.info("checker_job.cache_warm_completed", warmed_key_count=warmed_key_count)
             except Exception:
                 logger.warning("checker_job.cache_warm_failed", exc_info=True)
+        elif settings.api_cache_enabled and settings.api_cache_warm_on_checker_job and is_cloud_run_task_execution:
+            logger.info(
+                "checker_job.cache_warm_skipped_cloud_run_task_execution",
+                cloud_run_task_index=cloud_run_task_index,
+                cloud_run_task_count=cloud_run_task_count,
+                api_cache_warm_on_cloud_run_checker_job=settings.api_cache_warm_on_cloud_run_checker_job,
+            )
         elif settings.api_cache_enabled and settings.api_cache_warm_on_checker_job:
             logger.info(
                 "checker_job.cache_warm_skipped_non_primary_task",

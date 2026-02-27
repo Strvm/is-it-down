@@ -46,6 +46,7 @@ File layout:
 Checker job defaults:
 
 - `checker_job_task_count = 4` (Cloud Run Job tasks and parallelism)
+- `api_cache_warm_on_cloud_run_checker_job = true` (cache warming remains enabled in checker tasks)
 
 ## Example: dev apply
 

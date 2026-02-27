@@ -212,6 +212,102 @@ async def test_run_once_non_primary_task_skips_cache_warm(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
+async def test_run_once_primary_cloud_run_task_warms_cache_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_ENABLED", "true")
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_WARM_ON_CHECKER_JOB", "true")
+    monkeypatch.delenv("IS_IT_DOWN_API_CACHE_WARM_ON_CLOUD_RUN_CHECKER_JOB", raising=False)
+    monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", "0")
+    monkeypatch.setenv("CLOUD_RUN_TASK_COUNT", "4")
+    _reset_settings_cache()
+
+    run_result = ServiceRunResult(
+        service_key="dummy",
+        check_results=[
+            CheckResult(
+                check_key="dummy_check",
+                status="up",
+                observed_at=datetime.now(UTC),
+            )
+        ],
+    )
+
+    async def fake_iter(*args, **kwargs):  # type: ignore[no-untyped-def]
+        yield DummyServiceChecker, run_result
+
+    insert_calls: list[int] = []
+    warm_calls: list[int] = []
+
+    def fake_insert_rows(rows):  # type: ignore[no-untyped-def]
+        insert_calls.append(len(rows))
+
+    async def fake_warm_api_cache() -> int:
+        warm_calls.append(1)
+        return 1
+
+    monkeypatch.setattr(
+        run_scheduled_checks,
+        "_resolve_service_checker_classes",
+        lambda targets, task_metadata=None: [DummyServiceChecker],
+    )
+    monkeypatch.setattr(run_scheduled_checks, "iter_service_checker_runs", fake_iter)
+    monkeypatch.setattr(run_scheduled_checks, "_insert_rows", fake_insert_rows)
+    monkeypatch.setattr(run_scheduled_checks, "warm_api_cache", fake_warm_api_cache)
+
+    await run_scheduled_checks._run_once(targets=[], strict=False, dry_run=False)
+
+    assert insert_calls == [1]
+    assert warm_calls == [1]
+
+
+@pytest.mark.asyncio
+async def test_run_once_primary_cloud_run_task_skips_cache_warm_when_opted_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_ENABLED", "true")
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_WARM_ON_CHECKER_JOB", "true")
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_WARM_ON_CLOUD_RUN_CHECKER_JOB", "false")
+    monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", "0")
+    monkeypatch.setenv("CLOUD_RUN_TASK_COUNT", "4")
+    _reset_settings_cache()
+
+    run_result = ServiceRunResult(
+        service_key="dummy",
+        check_results=[
+            CheckResult(
+                check_key="dummy_check",
+                status="up",
+                observed_at=datetime.now(UTC),
+            )
+        ],
+    )
+
+    async def fake_iter(*args, **kwargs):  # type: ignore[no-untyped-def]
+        yield DummyServiceChecker, run_result
+
+    insert_calls: list[int] = []
+    warm_calls: list[int] = []
+
+    def fake_insert_rows(rows):  # type: ignore[no-untyped-def]
+        insert_calls.append(len(rows))
+
+    async def fake_warm_api_cache() -> int:
+        warm_calls.append(1)
+        return 1
+
+    monkeypatch.setattr(
+        run_scheduled_checks,
+        "_resolve_service_checker_classes",
+        lambda targets, task_metadata=None: [DummyServiceChecker],
+    )
+    monkeypatch.setattr(run_scheduled_checks, "iter_service_checker_runs", fake_iter)
+    monkeypatch.setattr(run_scheduled_checks, "_insert_rows", fake_insert_rows)
+    monkeypatch.setattr(run_scheduled_checks, "warm_api_cache", fake_warm_api_cache)
+
+    await run_scheduled_checks._run_once(targets=[], strict=False, dry_run=False)
+
+    assert insert_calls == [1]
+    assert warm_calls == []
+
+
+@pytest.mark.asyncio
 async def test_run_once_task_with_no_assigned_checkers_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", "5")
     monkeypatch.setenv("CLOUD_RUN_TASK_COUNT", "6")

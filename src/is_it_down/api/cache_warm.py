@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -26,7 +27,7 @@ from is_it_down.settings import get_settings
 logger = structlog.get_logger(__name__)
 _DEFAULT_WARM_WINDOW = "24h"
 _TOP_VIEWED_LOOKBACK_WINDOW = timedelta(hours=1)
-_WARM_CONCURRENCY = 6
+_WARM_CONCURRENCY = 2
 _SERVICE_SUMMARY_LIST_ADAPTER = TypeAdapter(list[ServiceSummary])
 _INCIDENT_LIST_ADAPTER = TypeAdapter(list[IncidentSummary])
 _SERVICE_UPTIME_LIST_ADAPTER = TypeAdapter(list[ServiceUptimeSummary])
@@ -158,8 +159,10 @@ async def _warm_many_keys(
             )
         return 1 if value is not None else 0
 
-    warmed_results = await asyncio.gather(*(_warm_entry(entry) for entry in warm_entries))
-    return sum(warmed_results)
+    warmed_count = 0
+    for warm_entry in warm_entries:
+        warmed_count += await _warm_entry(warm_entry)
+    return warmed_count
 
 
 async def _warm_key[T](
@@ -277,7 +280,6 @@ async def warm_api_cache(
         top_viewed_slugs=top_viewed_slugs,
     )
 
-    service_warm_entries: list[tuple[str, TypeAdapter[Any], Callable[[], Awaitable[Any]]]] = []
     for slug in warm_service_slugs:
         async def load_detail(current_slug: str = slug) -> ServiceDetail:
             """Load detail.
@@ -296,14 +298,6 @@ async def warm_api_cache(
                 raise RuntimeError(f"Service detail is missing for slug='{current_slug}'.")
             return detail
 
-        service_warm_entries.append(
-            (
-                f"services:{slug}:detail",
-                _SERVICE_DETAIL_ADAPTER,
-                load_detail,
-            )
-        )
-
         async def load_history(current_slug: str = slug) -> list[SnapshotPoint]:
             """Load history.
 
@@ -320,14 +314,6 @@ async def warm_api_cache(
             if history is None:
                 raise RuntimeError(f"Service history is missing for slug='{current_slug}'.")
             return history
-
-        service_warm_entries.append(
-            (
-                f"services:{slug}:history:{_DEFAULT_WARM_WINDOW}",
-                _SERVICE_HISTORY_ADAPTER,
-                load_history,
-            )
-        )
 
         async def load_checker_trend(current_slug: str = slug) -> ServiceCheckerTrendSummary:
             """Load checker trend.
@@ -346,18 +332,28 @@ async def warm_api_cache(
                 raise RuntimeError(f"Service checker trend is missing for slug='{current_slug}'.")
             return checker_trend
 
-        service_warm_entries.append(
+        service_warm_entries = [
+            (
+                f"services:{slug}:detail",
+                _SERVICE_DETAIL_ADAPTER,
+                load_detail,
+            ),
+            (
+                f"services:{slug}:history:{_DEFAULT_WARM_WINDOW}",
+                _SERVICE_HISTORY_ADAPTER,
+                load_history,
+            ),
             (
                 f"services:{slug}:checker-trend:{_DEFAULT_WARM_WINDOW}",
                 _SERVICE_CHECKER_TREND_ADAPTER,
                 load_checker_trend,
-            )
+            ),
+        ]
+        warmed_key_count += await _warm_many_keys(
+            cache=cache,
+            warm_entries=service_warm_entries,
         )
-
-    warmed_key_count += await _warm_many_keys(
-        cache=cache,
-        warm_entries=service_warm_entries,
-    )
+        gc.collect()
 
     logger.info(
         "api.cache_warm_completed",
