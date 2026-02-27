@@ -15,7 +15,7 @@ Create new service checker modules that match this repository's checker architec
 - Set `official_uptime` to the official status page URL when available.
 - Set `dependencies` as `Sequence[type[BaseServiceChecker]]` using checker class references (not strings).
 3. Define a MINIMUN 5 (or more) `BaseCheck` subclasses:
-- Search only for valid endpoint(s) that would reflect well the service's health. Avoid redundant checks.
+- Search only for valid endpoint(s) that would reflect well the service's health. Avoid redundant checks. You are encourage to search online for potential endpoints (docs, github, etc..) and test them to see what could be a valid test on them to measure their uptime.
 - Set `check_key`, `endpoint_key`, `interval_seconds`, `timeout_seconds`.
 - Set `weight` only when needed. Keep unspecified weights as `None`.
 - If there is an IP issue, make sure to use the proxy_setting param.
