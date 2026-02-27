@@ -18,6 +18,7 @@ Create new service checker modules that match this repository's checker architec
 - Search only for valid endpoint(s) that would reflect well the service's health. Avoid redundant checks.
 - Set `check_key`, `endpoint_key`, `interval_seconds`, `timeout_seconds`.
 - Set `weight` only when needed. Keep unspecified weights as `None`.
+- If there is an IP issue, make sure to use the proxy_setting param.
 - Make sure to link dependencies when creating a new service (e.g if the new service has as dependency CloudFlare make sure to include the CloudFlare service as dependency, etc..)
 
 ## Follow Weight Rules

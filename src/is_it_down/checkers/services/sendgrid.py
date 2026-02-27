@@ -73,7 +73,7 @@ class SendGridServiceChecker(BaseServiceChecker):
     """Represent `SendGridServiceChecker`."""
 
     service_key = "sendgrid"
-    logo_url = "https://cdn.simpleicons.org/sendgrid"
+    logo_url = "https://img.logo.dev/sendgrid.com?token=pk_Ob37anqtSYSOl80OeGoACA"
     official_uptime = "https://status.sendgrid.com/"
     dependencies: Sequence[type[BaseServiceChecker]] = (TwilioServiceChecker,)
 
