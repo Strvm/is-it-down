@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     worker_lease_seconds: int = 30
     worker_max_attempts: int = 3
     checker_concurrency: int = 10
+    checker_max_response_body_bytes: int = 524288
+    checker_max_json_response_body_bytes: int = 1048576
+    checker_insert_batch_size: int = 500
 
     default_http_timeout_seconds: float = 5.0
     user_agent: str = "is-it-down/0.1.0"

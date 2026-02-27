@@ -19,6 +19,7 @@ Create new service checker modules that match this repository's checker architec
 - Set `check_key`, `endpoint_key`, `interval_seconds`, `timeout_seconds`.
 - Set `weight` only when needed. Keep unspecified weights as `None`.
 - If there is an IP issue, make sure to use the proxy_setting param.
+- You are required to test each indivdual BaseCheckers to make sure it is working as expected.
 - Make sure to link dependencies when creating a new service (e.g if the new service has as dependency CloudFlare make sure to include the CloudFlare service as dependency, etc..)
 
 ## Follow Weight Rules

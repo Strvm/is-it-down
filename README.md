@@ -132,6 +132,10 @@ Most local contributor workflows only need defaults, but these are commonly used
 - `IS_IT_DOWN_DEFAULT_CHECKER_PROXY_URL`: local proxy override for checks that use `proxy_setting="default"`.
 - `IS_IT_DOWN_PROXY_SECRET_PROJECT_ID`: GCP project containing checker proxy secrets.
 - `IS_IT_DOWN_DEFAULT_CHECKER_PROXY_SECRET_ID`: default proxy secret ID.
+- `IS_IT_DOWN_CHECKER_CONCURRENCY` (default: `10`)
+- `IS_IT_DOWN_CHECKER_MAX_RESPONSE_BODY_BYTES` (default: `524288`)
+- `IS_IT_DOWN_CHECKER_MAX_JSON_RESPONSE_BODY_BYTES` (default: `1048576`)
+- `IS_IT_DOWN_CHECKER_INSERT_BATCH_SIZE` (default: `500`)
 
 BigQuery settings (for non-dry-run scheduled checks / API integrations):
 

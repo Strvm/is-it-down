@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import httpx
 
-from is_it_down.checkers.utils import json_dict_or_none, json_list_or_none
+from is_it_down.checkers.http_client import (
+    BODY_LIMIT_EXTENSION_KEY,
+    BODY_SIZE_EXTENSION_KEY,
+    BODY_TRUNCATED_EXTENSION_KEY,
+)
+from is_it_down.checkers.utils import build_response_debug_blob, json_dict_or_none, json_list_or_none
 
 
 def _response_with_json(payload: object) -> httpx.Response:
@@ -43,3 +48,16 @@ def test_json_list_or_none_returns_none_for_non_list() -> None:
 def test_json_list_or_none_returns_none_for_invalid_json() -> None:
     response = _response_with_text("invalid")
     assert json_list_or_none(response) is None
+
+
+def test_build_response_debug_blob_includes_client_truncation_metadata() -> None:
+    response = _response_with_text("example payload")
+    response.extensions[BODY_TRUNCATED_EXTENSION_KEY] = True
+    response.extensions[BODY_LIMIT_EXTENSION_KEY] = 16
+    response.extensions[BODY_SIZE_EXTENSION_KEY] = 16
+
+    debug = build_response_debug_blob(response, body_char_limit=8)
+
+    assert debug["body_truncated_by_client"] is True
+    assert debug["body_limit_bytes"] == 16
+    assert debug["body_size_bytes"] == 16

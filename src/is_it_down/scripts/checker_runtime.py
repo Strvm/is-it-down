@@ -1,13 +1,14 @@
 """Provide shared runtime helpers for executing service checker classes."""
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 
 import httpx
 
 from is_it_down.checkers.base import BaseServiceChecker, ServiceRunResult
+from is_it_down.checkers.http_client import BoundedAsyncClient
 from is_it_down.checkers.registry import registry
-from is_it_down.settings import get_settings
+from is_it_down.settings import Settings, get_settings
 
 
 def service_checker_path(service_checker_cls: type[BaseServiceChecker]) -> str:
@@ -93,35 +94,88 @@ async def execute_service_checkers(
     Returns:
         The resulting value.
     """
+    runs: list[tuple[type[BaseServiceChecker], ServiceRunResult]] = []
+    async for run in iter_service_checker_runs(
+        service_checker_classes,
+        concurrent=concurrent,
+        concurrency_limit=concurrency_limit,
+    ):
+        runs.append(run)
+    return runs
+
+
+async def iter_service_checker_runs(
+    service_checker_classes: Sequence[type[BaseServiceChecker]],
+    *,
+    concurrent: bool = False,
+    concurrency_limit: int | None = None,
+) -> AsyncIterator[tuple[type[BaseServiceChecker], ServiceRunResult]]:
+    """Iter service checker runs.
+
+    Args:
+        service_checker_classes: The service checker classes value.
+        concurrent: The concurrent value.
+        concurrency_limit: The concurrency limit value.
+
+    Yields:
+        The values produced by the generator.
+
+    Raises:
+        ValueError: If an error occurs while executing this function.
+    """
     settings = get_settings()
-    client_timeout = httpx.Timeout(settings.default_http_timeout_seconds)
+    limit = concurrency_limit or settings.checker_concurrency
+    if concurrent and limit <= 0:
+        raise ValueError("concurrency_limit must be greater than 0 in concurrent mode.")
 
-    async with httpx.AsyncClient(
-        timeout=client_timeout,
-        headers={"User-Agent": settings.user_agent},
-        follow_redirects=True,
-    ) as client:
+    async with _build_checker_client(settings) as client:
         if not concurrent:
-            return [
-                (service_checker_cls, await service_checker_cls().run_all(client))
-                for service_checker_cls in service_checker_classes
-            ]
+            for service_checker_cls in service_checker_classes:
+                yield service_checker_cls, await service_checker_cls().run_all(client)
+            return
 
-        limit = concurrency_limit or settings.checker_concurrency
         semaphore = asyncio.Semaphore(limit)
 
         async def _run_one(
             service_checker_cls: type[BaseServiceChecker],
         ) -> tuple[type[BaseServiceChecker], ServiceRunResult]:
             """Run one.
-            
+
             Args:
                 service_checker_cls: The service checker cls value.
-            
+
             Returns:
                 The resulting value.
             """
             async with semaphore:
                 return service_checker_cls, await service_checker_cls().run_all(client)
 
-        return await asyncio.gather(*[_run_one(service_checker_cls) for service_checker_cls in service_checker_classes])
+        tasks = [asyncio.create_task(_run_one(service_checker_cls)) for service_checker_cls in service_checker_classes]
+        try:
+            for task in asyncio.as_completed(tasks):
+                yield await task
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+
+def _build_checker_client(settings: Settings) -> BoundedAsyncClient:
+    """Build checker client.
+
+    Args:
+        settings: The settings value.
+
+    Returns:
+        The resulting value.
+    """
+    client_timeout = httpx.Timeout(settings.default_http_timeout_seconds)
+    return BoundedAsyncClient(
+        timeout=client_timeout,
+        headers={"User-Agent": settings.user_agent},
+        follow_redirects=True,
+        max_response_body_bytes=settings.checker_max_response_body_bytes,
+        max_json_response_body_bytes=settings.checker_max_json_response_body_bytes,
+    )

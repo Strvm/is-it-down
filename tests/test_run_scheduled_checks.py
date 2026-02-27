@@ -37,8 +37,8 @@ async def test_run_once_warms_cache_after_bigquery_insert(monkeypatch: pytest.Mo
         ],
     )
 
-    async def fake_execute(*args, **kwargs):  # type: ignore[no-untyped-def]
-        return [(DummyServiceChecker, run_result)]
+    async def fake_iter(*args, **kwargs):  # type: ignore[no-untyped-def]
+        yield DummyServiceChecker, run_result
 
     insert_calls: list[int] = []
     warm_calls: list[int] = []
@@ -51,7 +51,7 @@ async def test_run_once_warms_cache_after_bigquery_insert(monkeypatch: pytest.Mo
         return 4
 
     monkeypatch.setattr(run_scheduled_checks, "_resolve_service_checker_classes", lambda targets: [DummyServiceChecker])
-    monkeypatch.setattr(run_scheduled_checks, "execute_service_checkers", fake_execute)
+    monkeypatch.setattr(run_scheduled_checks, "iter_service_checker_runs", fake_iter)
     monkeypatch.setattr(run_scheduled_checks, "_insert_rows", fake_insert_rows)
     monkeypatch.setattr(run_scheduled_checks, "warm_api_cache", fake_warm_api_cache)
 
@@ -78,8 +78,8 @@ async def test_run_once_dry_run_skips_insert_and_cache_warm(monkeypatch: pytest.
         ],
     )
 
-    async def fake_execute(*args, **kwargs):  # type: ignore[no-untyped-def]
-        return [(DummyServiceChecker, run_result)]
+    async def fake_iter(*args, **kwargs):  # type: ignore[no-untyped-def]
+        yield DummyServiceChecker, run_result
 
     insert_calls: list[int] = []
     warm_calls: list[int] = []
@@ -92,7 +92,7 @@ async def test_run_once_dry_run_skips_insert_and_cache_warm(monkeypatch: pytest.
         return 1
 
     monkeypatch.setattr(run_scheduled_checks, "_resolve_service_checker_classes", lambda targets: [DummyServiceChecker])
-    monkeypatch.setattr(run_scheduled_checks, "execute_service_checkers", fake_execute)
+    monkeypatch.setattr(run_scheduled_checks, "iter_service_checker_runs", fake_iter)
     monkeypatch.setattr(run_scheduled_checks, "_insert_rows", fake_insert_rows)
     monkeypatch.setattr(run_scheduled_checks, "warm_api_cache", fake_warm_api_cache)
 

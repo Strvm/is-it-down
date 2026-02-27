@@ -6,6 +6,7 @@ from typing import Any, Final
 
 import httpx
 
+from is_it_down.checkers.http_client import body_limit_kwargs_from_client, response_body_truncation_metadata
 from is_it_down.core.models import ServiceStatus
 
 _STATUSPAGE_DEGRADED: Final[set[str]] = {"minor", "major", "maintenance"}
@@ -149,6 +150,7 @@ def build_response_debug_blob(
         "url": str(response.request.url) if response.request is not None else None,
         "content_type": response.headers.get("content-type", ""),
     }
+    debug.update(response_body_truncation_metadata(response))
 
     try:
         body = response.text
@@ -222,11 +224,14 @@ async def safe_get(client: httpx.AsyncClient, url: str, **kwargs: Any) -> httpx.
         return await client.send(request)
     except httpx.ProxyError:
         try:
-            async with httpx.AsyncClient(
+            client_cls = type(client)
+            direct_client_kwargs = body_limit_kwargs_from_client(client)
+            async with client_cls(
                 timeout=client.timeout,
                 headers=dict(client.headers),
                 follow_redirects=client.follow_redirects,
                 trust_env=False,
+                **direct_client_kwargs,
             ) as direct_client:
                 direct_request = direct_client.build_request("GET", url, **kwargs)
                 return await direct_client.send(direct_request)

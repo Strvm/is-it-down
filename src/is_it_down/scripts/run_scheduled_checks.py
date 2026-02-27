@@ -17,7 +17,7 @@ from is_it_down.checkers.proxy import clear_proxy_resolution_cache
 from is_it_down.logging import configure_logging
 from is_it_down.scripts.checker_runtime import (
     discover_service_checkers,
-    execute_service_checkers,
+    iter_service_checker_runs,
     resolve_service_checker_targets,
     service_checker_path,
 )
@@ -82,8 +82,9 @@ def _resolve_service_checker_classes(targets: list[str]) -> list[type[BaseServic
     return [discovered[key] for key in sorted(discovered)]
 
 
-def _build_bigquery_rows(
-    runs: list[tuple[type[BaseServiceChecker], ServiceRunResult]],
+def _build_bigquery_rows_for_run(
+    service_checker_cls: type[BaseServiceChecker],
+    run_result: ServiceRunResult,
     *,
     run_id: str,
     execution_id: str | None,
@@ -92,7 +93,8 @@ def _build_bigquery_rows(
     """Build bigquery rows.
     
     Args:
-        runs: The runs value.
+        service_checker_cls: The service checker cls value.
+        run_result: The run result value.
         run_id: The run id value.
         execution_id: The execution id value.
         ingested_at: The ingested at value.
@@ -100,33 +102,31 @@ def _build_bigquery_rows(
     Returns:
         The resulting value.
     """
-    rows: list[dict[str, Any]] = []
     ingested_at_iso = ingested_at.isoformat()
+    checker_class = service_checker_path(service_checker_cls)
+    rows: list[dict[str, Any]] = []
+    for check_result in run_result.check_results:
+        metadata_json: str | None = None
+        if check_result.metadata:
+            metadata_json = json.dumps(check_result.metadata, sort_keys=True)
 
-    for service_checker_cls, run_result in runs:
-        checker_class = service_checker_path(service_checker_cls)
-        for check_result in run_result.check_results:
-            metadata_json: str | None = None
-            if check_result.metadata:
-                metadata_json = json.dumps(check_result.metadata, sort_keys=True)
-
-            rows.append(
-                {
-                    "run_id": run_id,
-                    "execution_id": execution_id,
-                    "service_key": run_result.service_key,
-                    "checker_class": checker_class,
-                    "check_key": check_result.check_key,
-                    "status": check_result.status,
-                    "observed_at": check_result.observed_at.isoformat(),
-                    "latency_ms": check_result.latency_ms,
-                    "http_status": check_result.http_status,
-                    "error_code": check_result.error_code,
-                    "error_message": check_result.error_message,
-                    "metadata_json": metadata_json,
-                    "ingested_at": ingested_at_iso,
-                }
-            )
+        rows.append(
+            {
+                "run_id": run_id,
+                "execution_id": execution_id,
+                "service_key": run_result.service_key,
+                "checker_class": checker_class,
+                "check_key": check_result.check_key,
+                "status": check_result.status,
+                "observed_at": check_result.observed_at.isoformat(),
+                "latency_ms": check_result.latency_ms,
+                "http_status": check_result.http_status,
+                "error_code": check_result.error_code,
+                "error_message": check_result.error_message,
+                "metadata_json": metadata_json,
+                "ingested_at": ingested_at_iso,
+            }
+        )
 
     return rows
 
@@ -160,18 +160,6 @@ def _insert_rows(rows: list[dict[str, Any]]) -> None:
     logger.info("checker_job.rows_inserted", table_id=table_id, row_count=len(rows))
 
 
-def _has_non_up_result(runs: list[tuple[type[BaseServiceChecker], ServiceRunResult]]) -> bool:
-    """Has non up result.
-    
-    Args:
-        runs: The runs value.
-    
-    Returns:
-        True when the condition is met; otherwise, False.
-    """
-    return any(check_result.status != "up" for _, run_result in runs for check_result in run_result.check_results)
-
-
 async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
     """Run once.
     
@@ -197,36 +185,60 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
         dry_run=dry_run,
     )
 
-    runs = await execute_service_checkers(
+    run_id = uuid4().hex
+    execution_id = os.getenv("CLOUD_RUN_EXECUTION")
+    ingested_at = datetime.now(UTC)
+    service_count = 0
+    check_count = 0
+    non_up_count = 0
+    has_non_up_result = False
+    insert_batch_size = max(1, settings.checker_insert_batch_size)
+    row_buffer: list[dict[str, Any]] = []
+
+    async for service_checker_cls, run_result in iter_service_checker_runs(
         service_checker_classes,
         concurrent=True,
         concurrency_limit=settings.checker_concurrency,
-    )
+    ):
+        service_count += 1
 
-    run_id = uuid4().hex
-    execution_id = os.getenv("CLOUD_RUN_EXECUTION")
-    rows = _build_bigquery_rows(
-        runs,
-        run_id=run_id,
-        execution_id=execution_id,
-        ingested_at=datetime.now(UTC),
-    )
+        checker_non_up_count = 0
+        for check_result in run_result.check_results:
+            check_count += 1
+            if check_result.status != "up":
+                checker_non_up_count += 1
 
-    check_count = sum(len(run_result.check_results) for _, run_result in runs)
-    non_up_count = sum(
-        1 for _, run_result in runs for check_result in run_result.check_results if check_result.status != "up"
-    )
+        non_up_count += checker_non_up_count
+        has_non_up_result = has_non_up_result or checker_non_up_count > 0
+
+        if dry_run:
+            continue
+
+        row_buffer.extend(
+            _build_bigquery_rows_for_run(
+                service_checker_cls,
+                run_result,
+                run_id=run_id,
+                execution_id=execution_id,
+                ingested_at=ingested_at,
+            )
+        )
+        if len(row_buffer) >= insert_batch_size:
+            _insert_rows(row_buffer)
+            row_buffer = []
+
+    if not dry_run and row_buffer:
+        _insert_rows(row_buffer)
 
     logger.info(
         "checker_job.completed",
         run_id=run_id,
-        service_count=len(runs),
+        service_count=service_count,
         check_count=check_count,
         non_up_count=non_up_count,
     )
 
     if not dry_run:
-        _insert_rows(rows)
         if settings.api_cache_enabled and settings.api_cache_warm_on_checker_job:
             try:
                 warmed_key_count = await warm_api_cache()
@@ -234,7 +246,7 @@ async def _run_once(*, targets: list[str], strict: bool, dry_run: bool) -> None:
             except Exception:
                 logger.warning("checker_job.cache_warm_failed", exc_info=True)
 
-    if strict and _has_non_up_result(runs):
+    if strict and has_non_up_result:
         raise SystemExit(1)
 
 

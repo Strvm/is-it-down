@@ -12,6 +12,7 @@ from math import isclose
 import httpx
 from pydantic import BaseModel
 
+from is_it_down.checkers.http_client import body_limit_kwargs_from_client
 from is_it_down.checkers.proxy import ProxyConfigurationError, resolve_proxy_url_for_setting
 from is_it_down.core.granularity import (
     derive_check_status_detail,
@@ -159,12 +160,16 @@ async def _proxy_client_for_check(
     Yields:
         The values produced by the generator.
     """
-    async with httpx.AsyncClient(
+    client_cls = type(base_client)
+    proxy_client_kwargs = body_limit_kwargs_from_client(base_client)
+
+    async with client_cls(
         timeout=base_client.timeout,
         headers=dict(base_client.headers),
         follow_redirects=base_client.follow_redirects,
         proxy=proxy_url,
         trust_env=False,
+        **proxy_client_kwargs,
     ) as proxy_client:
         yield proxy_client
 
