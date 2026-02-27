@@ -43,7 +43,7 @@ class ClickHouseSupportCheck(HtmlMarkerCheck):
     """Represent `ClickHouseSupportCheck`."""
 
     check_key = "clickhouse_support"
-    endpoint_key = "https://clickhouse.com/support/"
+    endpoint_key = "https://clickhouse.com/company/contact"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.15

@@ -67,6 +67,7 @@ class BitbucketApiAuthCheck(ApiAuthResponseCheck):
     request_json = None
     request_data = None
     expected_http_statuses = (401, 403)
+    require_error_signal = False
 
 
 class BitbucketServiceChecker(BaseServiceChecker):

@@ -36,7 +36,7 @@ class PagerDutyDevelopersCheck(HtmlMarkerCheck):
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
-    expected_markers = ("pagerduty",)
+    expected_markers = ("developer",)
 
 
 class PagerDutySupportCheck(HtmlMarkerCheck):

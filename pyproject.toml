@@ -36,6 +36,7 @@ is-it-down-worker = "is_it_down.worker.main:main"
 is-it-down-seed-demo = "is_it_down.scripts.seed_demo:main"
 is-it-down-run-service-checker = "is_it_down.scripts.run_service_checker:main"
 is-it-down-run-scheduled-checks = "is_it_down.scripts.run_scheduled_checks:main"
+find-failing-base-checkers = "is_it_down.scripts.find_failing_base_checkers:main"
 
 [build-system]
 requires = ["hatchling>=1.27.0"]

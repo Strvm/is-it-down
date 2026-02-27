@@ -32,7 +32,7 @@ class ZapierPlatformDocsCheck(HtmlMarkerCheck):
     """Represent `ZapierPlatformDocsCheck`."""
 
     check_key = "zapier_platform_docs"
-    endpoint_key = "https://platform.zapier.com/docs"
+    endpoint_key = "https://docs.zapier.com/platform/home"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2

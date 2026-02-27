@@ -32,7 +32,7 @@ class SegmentDocsCheck(HtmlMarkerCheck):
     """Represent `SegmentDocsCheck`."""
 
     check_key = "segment_docs"
-    endpoint_key = "https://segment.com/docs/"
+    endpoint_key = "https://docs.segmentapis.com/"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.2
@@ -54,7 +54,7 @@ class SegmentCommunityCheck(HtmlMarkerCheck):
     """Represent `SegmentCommunityCheck`."""
 
     check_key = "segment_community"
-    endpoint_key = "https://community.segment.com/"
+    endpoint_key = "https://www.twilio.com/docs/segment"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.15

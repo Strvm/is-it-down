@@ -25,9 +25,17 @@ _NON_OPERATIONAL_COMPONENT_STATUSES = {
 }
 
 _RESOLVED_INCIDENT_STATUSES = {
-    "resolved",
+    "closed",
     "completed",
+    "completed_verification",
+    "cancelled",
+    "postmortem_published",
+    "resolved",
     "postmortem",
+}
+
+_NON_DISRUPTIVE_INCIDENT_STATUSES = {
+    "scheduled",
 }
 
 _ERROR_SIGNAL_KEYS = (
@@ -36,9 +44,30 @@ _ERROR_SIGNAL_KEYS = (
     "error_description",
     "error_message",
     "error_summary",
+    "error_code",
+    "errorCode",
     "message",
+    "msg",
     "detail",
     "title",
+    "status_code",
+    "statusCode",
+)
+
+_ACCESS_CHALLENGE_MARKERS = (
+    "just a moment",
+    "verifying your connection",
+    "attention required",
+    "request blocked",
+    "access denied",
+    "why do i have to complete a captcha",
+    "__cf_chl_",
+    "cf-challenge",
+    "cloudflare",
+    "ray id",
+    "security checkpoint",
+    "security check",
+    "bot detection",
 )
 
 
@@ -113,7 +142,26 @@ def _payload_contains_error_signal(payload: Mapping[str, Any]) -> bool:
             return True
         if isinstance(raw_value, list):
             return True
+        if isinstance(raw_value, (int, float)) and raw_value != 0:
+            return True
     return False
+
+
+def _normalized_status_value(raw_status: Any) -> str | None:
+    """Normalize status value.
+
+    Args:
+        raw_status: The raw status value.
+
+    Returns:
+        The resulting value.
+    """
+    if not isinstance(raw_status, str):
+        return None
+    normalized = raw_status.strip().lower()
+    if not normalized:
+        return None
+    return normalized
 
 
 def _check_result(
@@ -218,28 +266,34 @@ class StatuspageSummaryCheck(BaseCheck):
                         incident
                         for incident in incidents
                         if isinstance(incident, Mapping)
-                        and incident.get("status") not in _RESOLVED_INCIDENT_STATUSES
+                        and _normalized_status_value(incident.get("status")) not in _RESOLVED_INCIDENT_STATUSES
+                        and _normalized_status_value(incident.get("status")) not in _NON_DISRUPTIVE_INCIDENT_STATUSES
                     ]
                     major_open_incidents = [
                         incident
                         for incident in open_incidents
                         if incident.get("impact") in {"major", "critical"}
                     ]
+                    critical_open_incidents = [
+                        incident
+                        for incident in open_incidents
+                        if incident.get("impact") == "critical"
+                    ]
 
                     metadata["open_incident_count"] = len(open_incidents)
                     metadata["major_open_incident_count"] = len(major_open_incidents)
+                    metadata["critical_open_incident_count"] = len(critical_open_incidents)
                     metadata["open_incident_names"] = [
                         incident.get("name")
                         for incident in open_incidents[:5]
                         if isinstance(incident.get("name"), str)
                     ]
 
-                    if major_open_incidents:
+                    if critical_open_incidents:
                         status = _elevate_status(status, "down")
                     elif open_incidents:
                         status = _elevate_status(status, "degraded")
                 else:
-                    status = _elevate_status(status, "degraded")
                     metadata["incidents_present"] = False
 
                 components = payload.get("components")
@@ -265,7 +319,6 @@ class StatuspageSummaryCheck(BaseCheck):
                     elif non_operational_components:
                         status = _elevate_status(status, "degraded")
                 else:
-                    status = _elevate_status(status, "degraded")
                     metadata["components_present"] = False
 
         add_non_up_debug_metadata(metadata=metadata, status=status, response=response)
@@ -277,6 +330,7 @@ class HtmlMarkerCheck(BaseCheck):
 
     expected_markers: tuple[str, ...] = ()
     required_content_type_fragment: str | None = "text/html"
+    allow_access_challenge: bool = True
 
     async def run(self, client: httpx.AsyncClient) -> CheckResult:
         """Run the entrypoint.
@@ -296,6 +350,18 @@ class HtmlMarkerCheck(BaseCheck):
             "content_type": content_type,
             "body_chars": len(body),
         }
+
+        if self.allow_access_challenge and response.status_code in {401, 403, 429}:
+            page_text = body.lower()
+            challenge_markers = [
+                marker
+                for marker in _ACCESS_CHALLENGE_MARKERS
+                if marker in page_text
+            ]
+            if challenge_markers:
+                status = "up"
+                metadata["access_challenge_detected"] = True
+                metadata["access_challenge_markers"] = challenge_markers[:5]
 
         if response.is_success:
             if self.required_content_type_fragment and self.required_content_type_fragment not in content_type.lower():
@@ -357,8 +423,11 @@ class ApiAuthResponseCheck(BaseCheck):
             payload = json_dict_or_none(response)
             if payload is None:
                 metadata["json_payload_present"] = False
-                metadata["error_signal_present"] = False
-                status = "degraded"
+                text_payload_present = bool(response.text.strip())
+                metadata["text_payload_present"] = text_payload_present
+                metadata["error_signal_present"] = text_payload_present
+                if self.require_error_signal and not text_payload_present:
+                    status = "degraded"
             else:
                 metadata["json_payload_present"] = True
                 metadata["payload_keys"] = sorted(str(key) for key in payload)[:10]

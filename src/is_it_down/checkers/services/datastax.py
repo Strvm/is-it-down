@@ -43,7 +43,7 @@ class DataStaxSupportCheck(HtmlMarkerCheck):
     """Represent `DataStaxSupportCheck`."""
 
     check_key = "datastax_support"
-    endpoint_key = "https://support.datastax.com/"
+    endpoint_key = "https://www.datastax.com/support"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.15

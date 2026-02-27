@@ -7,8 +7,8 @@ import httpx
 
 from is_it_down.core.models import ServiceStatus
 
-_STATUSPAGE_DEGRADED: Final[set[str]] = {"minor", "major"}
-_STATUSPAGE_DOWN: Final[set[str]] = {"critical", "maintenance"}
+_STATUSPAGE_DEGRADED: Final[set[str]] = {"minor", "major", "maintenance"}
+_STATUSPAGE_DOWN: Final[set[str]] = {"critical"}
 
 
 def json_dict_or_none(response: httpx.Response) -> dict[str, Any] | None:

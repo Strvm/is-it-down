@@ -19,6 +19,7 @@ class FastlyStatusPageCheck(StatuspageStatusCheck):
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.3
+    proxy_setting = "default"
 
 
 class FastlySummaryCheck(StatuspageSummaryCheck):
@@ -29,6 +30,7 @@ class FastlySummaryCheck(StatuspageSummaryCheck):
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.25
+    proxy_setting = "default"
 
 
 class FastlyHomepageCheck(HtmlMarkerCheck):

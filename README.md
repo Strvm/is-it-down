@@ -52,6 +52,14 @@ Run scheduled checks with BigQuery writes disabled:
 uv run is-it-down-run-scheduled-checks --dry-run
 ```
 
+Find BaseChecks that were `degraded`/`down` in the last 48 hours:
+
+```bash
+uv run find-failing-base-checkers
+uv run find-failing-base-checkers --json
+uv run find-failing-base-checkers --service-key cloudflare --lookback-hours 24
+```
+
 ## Run API Locally
 
 ```bash

@@ -10,7 +10,7 @@ class SnowplowStatusPageCheck(HtmlMarkerCheck):
     """Represent `SnowplowStatusPageCheck`."""
 
     check_key = "snowplow_status_page"
-    endpoint_key = "https://status.snowplow.io/"
+    endpoint_key = "https://support.snowplow.io/hc/en-us/sections/24623328471069-Maintenance-Notifications"
     interval_seconds = 60
     timeout_seconds = 5.0
     weight = 0.3
@@ -66,7 +66,7 @@ class SnowplowServiceChecker(BaseServiceChecker):
 
     service_key = "snowplow"
     logo_url = "https://img.logo.dev/snowplow.io?token=pk_Ob37anqtSYSOl80OeGoACA"
-    official_uptime = "https://status.snowplow.io/"
+    official_uptime = "https://support.snowplow.io/hc/en-us/sections/24623328471069-Maintenance-Notifications"
     dependencies: Sequence[type[BaseServiceChecker]] = ()
 
     def build_checks(self) -> Sequence[BaseCheck]:
