@@ -23,10 +23,13 @@ function formatDateTime(value: string) {
 
 export default async function ServiceDetailPage({ params }: Props) {
   const { slug } = await params;
+  const detailPromise = getServiceDetail(slug);
+  const historyPromise = getServiceHistory(slug, "24h");
+  const checkerTrendPromise = getServiceCheckerTrend(slug, "24h");
 
   let detail;
   try {
-    detail = await getServiceDetail(slug);
+    detail = await detailPromise;
   } catch (error) {
     if (isApiError(error) && error.status === 404) {
       notFound();
@@ -34,10 +37,7 @@ export default async function ServiceDetailPage({ params }: Props) {
     throw error;
   }
 
-  const [history, checkerTrend] = await Promise.all([
-    getServiceHistory(slug, "24h"),
-    getServiceCheckerTrend(slug, "24h"),
-  ]);
+  const [history, checkerTrend] = await Promise.all([historyPromise, checkerTrendPromise]);
   const likelyRelatedServices = detail.likely_related_services ?? [];
   const hasLikelyRelatedServices = likelyRelatedServices.length > 0;
 

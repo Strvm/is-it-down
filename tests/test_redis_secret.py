@@ -46,8 +46,8 @@ def test_resolve_secret_name_uses_redis_secret_project(monkeypatch: pytest.Monke
 
 
 def test_resolve_secret_name_requires_project_for_short_secret_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("IS_IT_DOWN_REDIS_SECRET_PROJECT_ID", raising=False)
-    monkeypatch.delenv("IS_IT_DOWN_BIGQUERY_PROJECT_ID", raising=False)
+    monkeypatch.setenv("IS_IT_DOWN_REDIS_SECRET_PROJECT_ID", "")
+    monkeypatch.setenv("IS_IT_DOWN_BIGQUERY_PROJECT_ID", "")
     _reset_settings_cache()
     try:
         with pytest.raises(RedisSecretConfigurationError):
