@@ -146,9 +146,14 @@ variable "checker_concurrency" {
   default = 10
 }
 
+
+
 variable "checker_job_task_count" {
-  type    = number
-  default = 4
+  type = map(string)
+  default = {
+    dev  = 1
+    prod = 2
+  }
 }
 
 variable "api_cache_enabled" {

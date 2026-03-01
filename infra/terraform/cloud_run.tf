@@ -64,8 +64,8 @@ resource "google_cloud_run_v2_job" "checker" {
   location = var.region
 
   template {
-    task_count  = var.checker_job_task_count
-    parallelism = var.checker_job_task_count
+    task_count  = var.checker_job_task_count[terraform.workspace]
+    parallelism = var.checker_job_task_count[terraform.workspace]
 
     template {
       service_account = google_service_account.checker_runtime.email
