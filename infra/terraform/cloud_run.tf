@@ -74,6 +74,13 @@ resource "google_cloud_run_v2_job" "checker" {
 
       containers {
         image   = "${var.region}-docker.pkg.dev/${var.project[terraform.workspace]}/${var.artifact_registry_repository}/${var.artifact_registry_image}:${var.image_tag}"
+
+        resources {
+          limits = {
+            memory = "1024Mi"
+          }
+        }
+
         command = ["is-it-down-run-scheduled-checks"]
 
         env {
