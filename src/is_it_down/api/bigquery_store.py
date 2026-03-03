@@ -43,6 +43,8 @@ from is_it_down.core.scoring import status_from_score, weighted_service_score
 from is_it_down.settings import get_settings
 
 _SERVICE_LOOKBACK_DAYS = 7
+_SERVICE_DETAIL_RECENT_LOOKBACK_DAYS = 30
+_SERVICE_DETAIL_STALE_LOOKBACK_DAYS = 365
 _INCIDENT_LOOKBACK_DAYS = 14
 _MAX_INCIDENTS = 500
 _DEPENDENCY_ALIGNMENT_WINDOW = timedelta(minutes=45)
@@ -656,6 +658,64 @@ class BigQueryApiStore:
             rows_by_service[str(row["service_key"])].append(row)
         return rows_by_service
 
+    async def _latest_rows_for_service_detail(
+        self,
+        service_key: str,
+        *,
+        cutoff: datetime | None,
+    ) -> list[dict[str, Any]]:
+        """Latest rows for service detail.
+
+        Args:
+            service_key: The service key value.
+            cutoff: Optional lower bound for observed_at.
+
+        Returns:
+            The resulting value.
+        """
+        cutoff_filter = ""
+        parameters: list[bigquery.ScalarQueryParameter] = [
+            bigquery.ScalarQueryParameter("service_key", "STRING", service_key),
+        ]
+        if cutoff is not None:
+            cutoff_filter = "AND observed_at >= @cutoff"
+            parameters.append(bigquery.ScalarQueryParameter("cutoff", "TIMESTAMP", cutoff))
+
+        return await self._query(
+            f"""
+            SELECT
+              check_key,
+              status,
+              observed_at,
+              latency_ms,
+              http_status,
+              error_code,
+              error_message,
+              metadata_json
+            FROM (
+              SELECT
+                check_key,
+                status,
+                observed_at,
+                latency_ms,
+                http_status,
+                error_code,
+                error_message,
+                metadata_json,
+                ROW_NUMBER() OVER (
+                  PARTITION BY check_key
+                  ORDER BY observed_at DESC
+                ) AS row_num
+              FROM `{self._table_id}`
+              WHERE service_key = @service_key
+                {cutoff_filter}
+            )
+            WHERE row_num = 1
+            ORDER BY check_key ASC
+            """,
+            parameters,
+        )
+
     async def service_detail_view_counts_since(self, *, cutoff: datetime) -> dict[str, int]:
         """Service detail view counts since.
         
@@ -1089,47 +1149,20 @@ class BigQueryApiStore:
         Returns:
             The resulting value.
         """
-        rows = await self._query(
-            f"""
-            SELECT
-              check_key,
-              status,
-              observed_at,
-              latency_ms,
-              http_status,
-              error_code,
-              error_message,
-              metadata_json
-            FROM (
-              SELECT
-                check_key,
-                status,
-                observed_at,
-                latency_ms,
-                http_status,
-                error_code,
-                error_message,
-                metadata_json,
-                ROW_NUMBER() OVER (
-                  PARTITION BY check_key
-                  ORDER BY observed_at DESC
-                ) AS row_num
-              FROM `{self._table_id}`
-              WHERE service_key = @service_key
-            )
-            WHERE row_num = 1
-            ORDER BY check_key ASC
-            """,
-            [bigquery.ScalarQueryParameter("service_key", "STRING", slug)],
-        )
-
         definition = discovered_service_definitions().get(slug)
+        now = datetime.now(UTC)
+        detail_cutoff = now - timedelta(days=_SERVICE_DETAIL_RECENT_LOOKBACK_DAYS)
+        rows = await self._latest_rows_for_service_detail(slug, cutoff=detail_cutoff)
+
+        if not rows and definition is not None:
+            stale_cutoff = now - timedelta(days=_SERVICE_DETAIL_STALE_LOOKBACK_DAYS)
+            rows = await self._latest_rows_for_service_detail(slug, cutoff=stale_cutoff)
+
         if definition is None and not rows:
             return None
         if definition is None:
             definition = _fallback_service_definition(slug)
 
-        now = datetime.now(UTC)
         observed_at = max((_ensure_utc(row.get("observed_at")) or now for row in rows), default=now)
         raw_score, status = _compute_raw_score(definition, rows)
         snapshot_status_detail, snapshot_severity_level, snapshot_score_band = _service_granularity_from_rows(
