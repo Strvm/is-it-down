@@ -572,7 +572,7 @@ class BigQueryApiStore:
     async def _query(
         self,
         query: str,
-        parameters: list[bigquery.ScalarQueryParameter] | None = None,
+        parameters: list[bigquery.QueryParameter] | None = None,
     ) -> list[dict[str, Any]]:
         """Query.
         
@@ -588,7 +588,7 @@ class BigQueryApiStore:
     def _query_sync(
         self,
         query: str,
-        parameters: list[bigquery.ScalarQueryParameter],
+        parameters: list[bigquery.QueryParameter],
     ) -> list[dict[str, Any]]:
         """Query sync.
         
@@ -681,7 +681,7 @@ class BigQueryApiStore:
             cutoff_filter = "AND observed_at >= @cutoff"
             parameters.append(bigquery.ScalarQueryParameter("cutoff", "TIMESTAMP", cutoff))
 
-        return await self._query(
+        rows = await self._query(
             f"""
             SELECT
               check_key,
@@ -689,9 +689,7 @@ class BigQueryApiStore:
               observed_at,
               latency_ms,
               http_status,
-              error_code,
-              error_message,
-              metadata_json
+              error_code
             FROM (
               SELECT
                 check_key,
@@ -699,6 +697,78 @@ class BigQueryApiStore:
                 observed_at,
                 latency_ms,
                 http_status,
+                error_code,
+                ROW_NUMBER() OVER (
+                  PARTITION BY check_key
+                  ORDER BY observed_at DESC
+                ) AS row_num
+              FROM `{self._table_id}`
+              WHERE service_key = @service_key
+                {cutoff_filter}
+            )
+            WHERE row_num = 1
+            ORDER BY check_key ASC
+            """,
+            parameters,
+        )
+        non_up_check_keys = [str(row["check_key"]) for row in rows if _normalize_status(row.get("status")) != "up"]
+        if not non_up_check_keys:
+            return rows
+
+        debug_rows = await self._latest_non_up_debug_rows_for_service_detail(
+            service_key=service_key,
+            cutoff=cutoff,
+            check_keys=non_up_check_keys,
+        )
+        debug_rows_by_check_key = {str(row["check_key"]): row for row in debug_rows}
+        for row in rows:
+            debug_row = debug_rows_by_check_key.get(str(row["check_key"]))
+            if debug_row is None:
+                continue
+            row["error_code"] = debug_row.get("error_code")
+            row["error_message"] = debug_row.get("error_message")
+            row["metadata_json"] = debug_row.get("metadata_json")
+        return rows
+
+    async def _latest_non_up_debug_rows_for_service_detail(
+        self,
+        *,
+        service_key: str,
+        cutoff: datetime | None,
+        check_keys: list[str],
+    ) -> list[dict[str, Any]]:
+        """Latest non-up debug fields for service detail checks.
+
+        Args:
+            service_key: The service key value.
+            cutoff: Optional lower bound for observed_at.
+            check_keys: Candidate check keys whose latest status is non-up.
+
+        Returns:
+            The resulting value.
+        """
+        if not check_keys:
+            return []
+
+        cutoff_filter = ""
+        parameters: list[bigquery.QueryParameter] = [
+            bigquery.ScalarQueryParameter("service_key", "STRING", service_key),
+            bigquery.ArrayQueryParameter("check_keys", "STRING", check_keys),
+        ]
+        if cutoff is not None:
+            cutoff_filter = "AND observed_at >= @cutoff"
+            parameters.append(bigquery.ScalarQueryParameter("cutoff", "TIMESTAMP", cutoff))
+
+        return await self._query(
+            f"""
+            SELECT
+              check_key,
+              error_code,
+              error_message,
+              metadata_json
+            FROM (
+              SELECT
+                check_key,
                 error_code,
                 error_message,
                 metadata_json,
@@ -708,6 +778,8 @@ class BigQueryApiStore:
                 ) AS row_num
               FROM `{self._table_id}`
               WHERE service_key = @service_key
+                AND check_key IN UNNEST(@check_keys)
+                AND status IN ("degraded", "down")
                 {cutoff_filter}
             )
             WHERE row_num = 1

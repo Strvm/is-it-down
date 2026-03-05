@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from functools import lru_cache
 from typing import Any, Awaitable, Callable, TypeVar
 
@@ -23,6 +24,7 @@ except ImportError:  # pragma: no cover - exercised in environments without redi
 
 logger = structlog.get_logger(__name__)
 _CACHE_FALLBACK_PREFIX = "is-it-down:api:v1"
+_MEMORY_CACHE_MAX_ENTRIES = 2048
 T = TypeVar("T")
 
 
@@ -41,6 +43,7 @@ class ApiResponseCache:
         self._redis_init_failed = False
         self._inflight_loads: dict[str, asyncio.Task[Any]] = {}
         self._inflight_lock = asyncio.Lock()
+        self._memory_cache: dict[str, tuple[float, str]] = {}
 
     @property
     def enabled(self) -> bool:
@@ -117,6 +120,7 @@ class ApiResponseCache:
 
     async def close(self) -> None:
         """Close cache resources."""
+        self._memory_cache.clear()
         client = self._redis
         self._redis = None
         if client is None:
@@ -125,6 +129,61 @@ class ApiResponseCache:
             await client.aclose()
         except AttributeError:  # pragma: no cover - compatibility fallback.
             await client.close()  # type: ignore[func-returns-value]
+
+    def _effective_ttl(self, ttl_seconds: int | None) -> int:
+        """Effective ttl.
+
+        Args:
+            ttl_seconds: Optional per-call ttl override.
+
+        Returns:
+            The resulting value.
+        """
+        return self._default_ttl_seconds if ttl_seconds is None else max(1, ttl_seconds)
+
+    def _read_memory_payload(self, *, full_key: str) -> str | None:
+        """Read memory payload.
+
+        Args:
+            full_key: Fully namespaced cache key.
+
+        Returns:
+            The resulting value.
+        """
+        if not self._enabled:
+            return None
+
+        cached = self._memory_cache.get(full_key)
+        if cached is None:
+            return None
+
+        expires_at, payload = cached
+        if expires_at <= time.monotonic():
+            self._memory_cache.pop(full_key, None)
+            return None
+        return payload
+
+    def _write_memory_payload(self, *, full_key: str, payload: str, ttl: int) -> None:
+        """Write memory payload.
+
+        Args:
+            full_key: Fully namespaced cache key.
+            payload: JSON-serialized cache payload.
+            ttl: Time-to-live in seconds.
+        """
+        if not self._enabled:
+            return
+
+        if full_key not in self._memory_cache and len(self._memory_cache) >= _MEMORY_CACHE_MAX_ENTRIES:
+            now = time.monotonic()
+            expired_keys = [key for key, (expires_at, _) in self._memory_cache.items() if expires_at <= now]
+            for key in expired_keys:
+                self._memory_cache.pop(key, None)
+            if len(self._memory_cache) >= _MEMORY_CACHE_MAX_ENTRIES:
+                oldest_key = next(iter(self._memory_cache))
+                self._memory_cache.pop(oldest_key, None)
+
+        self._memory_cache[full_key] = (time.monotonic() + float(ttl), payload)
 
     async def _write(
         self,
@@ -144,13 +203,16 @@ class ApiResponseCache:
             ttl_seconds: Optional per-call ttl override.
             redis_client: Redis client to use.
         """
-        if redis_client is None:
+        if not self._enabled:
             return
 
         encoded_value = adapter.dump_python(value, mode="json")
-        ttl = self._default_ttl_seconds if ttl_seconds is None else max(1, ttl_seconds)
+        ttl = self._effective_ttl(ttl_seconds)
+        payload = json.dumps(encoded_value, separators=(",", ":"), sort_keys=True)
+        self._write_memory_payload(full_key=full_key, payload=payload, ttl=ttl)
+        if redis_client is None:
+            return
         try:
-            payload = json.dumps(encoded_value, separators=(",", ":"), sort_keys=True)
             await redis_client.set(full_key, payload, ex=ttl)
         except Exception:
             logger.warning("api.cache_write_failed", key=full_key, ttl=ttl, exc_info=True)
@@ -175,12 +237,26 @@ class ApiResponseCache:
             The resulting value.
         """
         full_key = self.build_key(cache_key)
+        payload = self._read_memory_payload(full_key=full_key)
+        if payload is not None:
+            try:
+                value = adapter.validate_json(payload)
+                logger.debug("api.cache_hit", key=full_key, cache_layer="memory")
+                return value
+            except Exception:
+                self._memory_cache.pop(full_key, None)
+
         redis_client = await self._redis_client()
         if redis_client is not None:
             try:
                 payload = await redis_client.get(full_key)
                 if payload is not None:
                     value = adapter.validate_json(payload)
+                    self._write_memory_payload(
+                        full_key=full_key,
+                        payload=payload,
+                        ttl=self._effective_ttl(ttl_seconds),
+                    )
                     logger.debug("api.cache_hit", key=full_key)
                     return value
             except Exception:

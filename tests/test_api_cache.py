@@ -159,3 +159,49 @@ async def test_get_or_set_coalesces_concurrent_cache_misses(monkeypatch: pytest.
 
     assert results == [{"value": 11}] * 8
     assert called == 1
+
+
+@pytest.mark.asyncio
+async def test_get_or_set_uses_in_memory_fallback_when_redis_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_ENABLED", "true")
+    _reset_settings_cache()
+
+    cache = ApiResponseCache()
+    cache._redis_init_failed = True
+    adapter = TypeAdapter(dict[str, int])
+    called = 0
+
+    async def loader() -> dict[str, int]:
+        nonlocal called
+        called += 1
+        return {"value": 21}
+
+    first = await cache.get_or_set(cache_key="services:github:detail", adapter=adapter, loader=loader)
+    second = await cache.get_or_set(cache_key="services:github:detail", adapter=adapter, loader=loader)
+
+    assert first == {"value": 21}
+    assert second == {"value": 21}
+    assert called == 1
+
+
+@pytest.mark.asyncio
+async def test_get_or_set_does_not_use_memory_cache_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_ENABLED", "false")
+    _reset_settings_cache()
+
+    cache = ApiResponseCache()
+    cache._redis_init_failed = True
+    adapter = TypeAdapter(dict[str, int])
+    called = 0
+
+    async def loader() -> dict[str, int]:
+        nonlocal called
+        called += 1
+        return {"value": 33}
+
+    await cache.get_or_set(cache_key="services:list", adapter=adapter, loader=loader)
+    await cache.get_or_set(cache_key="services:list", adapter=adapter, loader=loader)
+
+    assert called == 2
