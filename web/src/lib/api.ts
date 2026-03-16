@@ -19,7 +19,7 @@ class ApiError extends Error {
 
 const DEFAULT_API_BASE_URL = "http://localhost:8080";
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   return (
     process.env.API_BASE_URL ||
     process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -27,9 +27,13 @@ function getApiBaseUrl(): string {
   ).replace(/\/$/, "");
 }
 
-async function fetchJson<T>(path: string, revalidate = 20): Promise<T> {
+function buildApiUrl(path: string): string {
+  return `${getApiBaseUrl()}${path}`;
+}
+
+async function fetchJson<T>(url: string, revalidate = 20): Promise<T> {
   const response = await fetch(
-    `${getApiBaseUrl()}${path}`,
+    url,
     revalidate <= 0
       ? { cache: "no-store" }
       : {
@@ -39,7 +43,7 @@ async function fetchJson<T>(path: string, revalidate = 20): Promise<T> {
 
   if (!response.ok) {
     throw new ApiError(
-      `Failed API request (${response.status}): ${path}`,
+      `Failed API request (${response.status}): ${url}`,
       response.status,
     );
   }
@@ -47,61 +51,67 @@ async function fetchJson<T>(path: string, revalidate = 20): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function fetchApiJson<T>(path: string, revalidate = 20): Promise<T> {
+  return fetchJson<T>(buildApiUrl(path), revalidate);
+}
+
 export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError;
 }
 
 export async function listServices(): Promise<ServiceSummary[]> {
-  return fetchJson<ServiceSummary[]>("/v1/services", 15);
+  return fetchApiJson<ServiceSummary[]>("/v1/services", 15);
 }
 
 export async function listIncidents(): Promise<IncidentSummary[]> {
-  return fetchJson<IncidentSummary[]>("/v1/incidents?status=all", 20);
+  return fetchApiJson<IncidentSummary[]>("/v1/incidents?status=all", 20);
 }
 
 export async function getServicesUptime(
-  window = "24h",
+  timeWindow = "24h",
 ): Promise<ServiceUptimeSummary[]> {
-  return fetchJson<ServiceUptimeSummary[]>(
-    `/v1/services/uptime?window=${encodeURIComponent(window)}`,
+  return fetchApiJson<ServiceUptimeSummary[]>(
+    `/v1/services/uptime?window=${encodeURIComponent(timeWindow)}`,
     20,
   );
 }
 
 export async function getServiceCheckerTrends(
-  window = "24h",
+  timeWindow = "24h",
   slugs?: string[],
 ): Promise<ServiceCheckerTrendSummary[]> {
-  const params = new URLSearchParams({ window });
+  const params = new URLSearchParams({ window: timeWindow });
   for (const slug of slugs ?? []) {
     params.append("slugs", slug);
   }
-  return fetchJson<ServiceCheckerTrendSummary[]>(
-    `/v1/services/checker-trends?${params.toString()}`,
-    20,
-  );
+  const path = `/v1/services/checker-trends?${params.toString()}`;
+  const url =
+    typeof window === "undefined"
+      ? buildApiUrl(path)
+      : `/api/services/checker-trends?${params.toString()}`;
+  return fetchJson<ServiceCheckerTrendSummary[]>(url, 20);
 }
 
 export async function getServiceCheckerTrend(
   slug: string,
-  window = "24h",
+  timeWindow = "24h",
 ): Promise<ServiceCheckerTrendSummary> {
-  return fetchJson<ServiceCheckerTrendSummary>(
-    `/v1/services/${slug}/checker-trends?window=${encodeURIComponent(window)}`,
+  return fetchApiJson<ServiceCheckerTrendSummary>(
+    `/v1/services/${slug}/checker-trends?window=${encodeURIComponent(timeWindow)}`,
     20,
   );
 }
 
 export async function getServiceDetail(slug: string): Promise<ServiceDetail> {
-  return fetchJson<ServiceDetail>(`/v1/services/${slug}`, 15);
+  return fetchApiJson<ServiceDetail>(`/v1/services/${slug}`, 15);
 }
 
 export async function getServiceHistory(
   slug: string,
-  window = "24h",
+  timeWindow = "24h",
 ): Promise<SnapshotPoint[]> {
-  return fetchJson<SnapshotPoint[]>(
-    `/v1/services/${slug}/history?window=${encodeURIComponent(window)}`,
+  return fetchApiJson<SnapshotPoint[]>(
+    `/v1/services/${slug}/history?window=${encodeURIComponent(timeWindow)}`,
     15,
   );
 }
