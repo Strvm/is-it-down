@@ -1077,6 +1077,34 @@ class BigQueryApiStore:
         Returns:
             The resulting value.
         """
+        service_keys: list[str] | None = None
+        return await self._get_service_checker_trends(cutoff=cutoff, service_keys=service_keys)
+
+    async def _get_service_checker_trends(
+        self,
+        *,
+        cutoff: datetime,
+        service_keys: list[str] | None,
+    ) -> list[ServiceCheckerTrendSummary]:
+        """Get service checker trends, optionally scoped to specific services.
+
+        Args:
+            cutoff: The cutoff value.
+            service_keys: Optional service keys to include.
+
+        Returns:
+            The resulting value.
+        """
+        where_clauses = ["observed_at >= @cutoff"]
+        parameters: list[bigquery.QueryParameter] = [
+            bigquery.ScalarQueryParameter("cutoff", "TIMESTAMP", cutoff),
+        ]
+        if service_keys is not None:
+            if not service_keys:
+                return []
+            where_clauses.append("service_key IN UNNEST(@service_keys)")
+            parameters.append(bigquery.ArrayQueryParameter("service_keys", "STRING", service_keys))
+
         rows = await self._query(
             f"""
             SELECT
@@ -1094,11 +1122,11 @@ class BigQueryApiStore:
                 END
               ) AS health_score
             FROM `{self._table_id}`
-            WHERE observed_at >= @cutoff
+            WHERE {" AND ".join(where_clauses)}
             GROUP BY service_key, check_key, bucket_start
             ORDER BY service_key ASC, bucket_start ASC, check_key ASC
             """,
-            [bigquery.ScalarQueryParameter("cutoff", "TIMESTAMP", cutoff)],
+            parameters,
         )
 
         points_by_service: dict[str, list[CheckerTrendPoint]] = defaultdict(list)
@@ -1121,9 +1149,12 @@ class BigQueryApiStore:
                 )
             )
 
-        service_keys = set(discovered_service_definitions().keys()) | set(points_by_service.keys())
+        if service_keys is None:
+            target_service_keys = sorted(set(discovered_service_definitions().keys()) | set(points_by_service.keys()))
+        else:
+            target_service_keys = list(dict.fromkeys(service_keys))
         trends: list[ServiceCheckerTrendSummary] = []
-        for service_key in sorted(service_keys):
+        for service_key in target_service_keys:
             definition = _service_definition_for_key(service_key)
             trends.append(
                 ServiceCheckerTrendSummary(
@@ -1136,6 +1167,24 @@ class BigQueryApiStore:
             )
 
         return trends
+
+    async def get_service_checker_trends_for_services(
+        self,
+        *,
+        cutoff: datetime,
+        service_keys: list[str],
+    ) -> list[ServiceCheckerTrendSummary]:
+        """Get service checker trends for a specific service subset.
+
+        Args:
+            cutoff: The cutoff value.
+            service_keys: Ordered service keys to include.
+
+        Returns:
+            The resulting value.
+        """
+        normalized_service_keys = list(dict.fromkeys(service_keys))
+        return await self._get_service_checker_trends(cutoff=cutoff, service_keys=normalized_service_keys)
 
     async def get_service_checker_trend(
         self,

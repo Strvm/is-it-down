@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     api_cache_enabled: bool = True
     api_cache_ttl_seconds: int = 600
     api_cache_key_prefix: str = "is-it-down:api:v1"
+    api_cache_memory_max_entries: int = 256
+    api_cache_memory_max_bytes: int = 16 * 1024 * 1024
+    api_cache_memory_max_payload_bytes: int = 64 * 1024
     api_cache_warm_on_checker_job: bool = True
     api_cache_warm_on_cloud_run_checker_job: bool = True
     api_cache_warm_impacted_service_limit: int = 25

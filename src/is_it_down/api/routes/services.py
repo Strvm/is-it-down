@@ -1,5 +1,6 @@
 """Provide functionality for `is_it_down.api.routes.services`."""
 
+import hashlib
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -24,6 +25,36 @@ _SERVICE_CHECKER_TRENDS_LIST_ADAPTER = TypeAdapter(list[ServiceCheckerTrendSumma
 _SERVICE_CHECKER_TREND_ADAPTER = TypeAdapter(ServiceCheckerTrendSummary)
 _SERVICE_DETAIL_ADAPTER = TypeAdapter(ServiceDetail)
 _SERVICE_HISTORY_LIST_ADAPTER = TypeAdapter(list[SnapshotPoint])
+
+
+def _normalize_slug_filters(slugs: list[str] | None) -> tuple[str, ...]:
+    """Normalize service slug filters for cache and query use.
+
+    Args:
+        slugs: Raw query values.
+
+    Returns:
+        Sorted, deduplicated slug filters.
+    """
+    if not slugs:
+        return ()
+    return tuple(sorted({slug.strip() for slug in slugs if slug.strip()}))
+
+
+def _checker_trends_cache_key(window: str, slugs: tuple[str, ...]) -> str:
+    """Build a stable cache key for checker trend requests.
+
+    Args:
+        window: The requested history window.
+        slugs: Normalized service slugs filter.
+
+    Returns:
+        Cache key fragment.
+    """
+    if not slugs:
+        return f"services:checker-trends:{window}"
+    digest = hashlib.sha1(",".join(slugs).encode("utf-8")).hexdigest()[:12]
+    return f"services:checker-trends:{window}:subset:{digest}"
 
 
 @router.get("", response_model=list[ServiceSummary])
@@ -74,6 +105,7 @@ async def list_services_uptime(
 @router.get("/checker-trends", response_model=list[ServiceCheckerTrendSummary])
 async def list_service_checker_trends(
     window: str = Query(default="24h", pattern=r"^[1-9][0-9]*[hdm]$"),
+    slugs: list[str] | None = Query(default=None),
     store: BigQueryApiStore = Depends(bigquery_store_dep),
     cache: ApiResponseCache = Depends(api_response_cache_dep),
 ) -> list[ServiceCheckerTrendSummary]:
@@ -81,6 +113,7 @@ async def list_service_checker_trends(
     
     Args:
         window: The window value.
+        slugs: Optional service slug filters.
         store: The store value.
         cache: The cache value.
     
@@ -88,10 +121,25 @@ async def list_service_checker_trends(
         The resulting value.
     """
     cutoff = datetime.now(UTC) - parse_history_window(window)
+    normalized_slugs = _normalize_slug_filters(slugs)
+
+    async def load_trends() -> list[ServiceCheckerTrendSummary]:
+        """Load checker trends for the requested service scope.
+
+        Returns:
+            The resulting value.
+        """
+        if normalized_slugs:
+            return await store.get_service_checker_trends_for_services(
+                cutoff=cutoff,
+                service_keys=list(normalized_slugs),
+            )
+        return await store.get_service_checker_trends(cutoff=cutoff)
+
     return await cache.get_or_set(
-        cache_key=f"services:checker-trends:{window}",
+        cache_key=_checker_trends_cache_key(window, normalized_slugs),
         adapter=_SERVICE_CHECKER_TRENDS_LIST_ADAPTER,
-        loader=lambda: store.get_service_checker_trends(cutoff=cutoff),
+        loader=load_trends,
     )
 
 

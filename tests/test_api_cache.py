@@ -205,3 +205,55 @@ async def test_get_or_set_does_not_use_memory_cache_when_disabled(monkeypatch: p
     await cache.get_or_set(cache_key="services:list", adapter=adapter, loader=loader)
 
     assert called == 2
+
+
+@pytest.mark.asyncio
+async def test_get_or_set_skips_large_payloads_in_memory_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_ENABLED", "true")
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_MEMORY_MAX_PAYLOAD_BYTES", "16")
+    _reset_settings_cache()
+
+    cache = ApiResponseCache()
+    cache._redis_init_failed = True
+    adapter = TypeAdapter(dict[str, str])
+    called = 0
+
+    async def loader() -> dict[str, str]:
+        nonlocal called
+        called += 1
+        return {"value": "x" * 32}
+
+    await cache.get_or_set(cache_key="services:checker-trends:24h", adapter=adapter, loader=loader)
+    await cache.get_or_set(cache_key="services:checker-trends:24h", adapter=adapter, loader=loader)
+
+    assert called == 2
+    assert cache._memory_cache == {}
+    assert cache._memory_cache_bytes == 0
+
+
+@pytest.mark.asyncio
+async def test_get_or_set_evicts_oldest_memory_payloads_by_total_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_ENABLED", "true")
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_MEMORY_MAX_BYTES", "48")
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_MEMORY_MAX_PAYLOAD_BYTES", "48")
+    monkeypatch.setenv("IS_IT_DOWN_API_CACHE_MEMORY_MAX_ENTRIES", "4")
+    _reset_settings_cache()
+
+    cache = ApiResponseCache()
+    cache._redis_init_failed = True
+    adapter = TypeAdapter(dict[str, str])
+
+    await cache.get_or_set(
+        cache_key="services:github:detail",
+        adapter=adapter,
+        loader=lambda: asyncio.sleep(0, result={"value": "a" * 18}),
+    )
+    await cache.get_or_set(
+        cache_key="services:stripe:detail",
+        adapter=adapter,
+        loader=lambda: asyncio.sleep(0, result={"value": "b" * 18}),
+    )
+
+    assert cache.build_key("services:github:detail") not in cache._memory_cache
+    assert cache.build_key("services:stripe:detail") in cache._memory_cache
+    assert cache._memory_cache_bytes <= 48

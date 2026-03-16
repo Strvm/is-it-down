@@ -70,9 +70,14 @@ export async function getServicesUptime(
 
 export async function getServiceCheckerTrends(
   window = "24h",
+  slugs?: string[],
 ): Promise<ServiceCheckerTrendSummary[]> {
+  const params = new URLSearchParams({ window });
+  for (const slug of slugs ?? []) {
+    params.append("slugs", slug);
+  }
   return fetchJson<ServiceCheckerTrendSummary[]>(
-    `/v1/services/checker-trends?window=${encodeURIComponent(window)}`,
+    `/v1/services/checker-trends?${params.toString()}`,
     20,
   );
 }

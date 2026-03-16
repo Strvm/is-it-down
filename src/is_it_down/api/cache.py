@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections import OrderedDict
 from functools import lru_cache
 from typing import Any, Awaitable, Callable, TypeVar
 
@@ -24,7 +25,6 @@ except ImportError:  # pragma: no cover - exercised in environments without redi
 
 logger = structlog.get_logger(__name__)
 _CACHE_FALLBACK_PREFIX = "is-it-down:api:v1"
-_MEMORY_CACHE_MAX_ENTRIES = 2048
 T = TypeVar("T")
 
 
@@ -38,12 +38,16 @@ class ApiResponseCache:
         self._enabled = settings.api_cache_enabled
         self._prefix = prefix or _CACHE_FALLBACK_PREFIX
         self._default_ttl_seconds = max(1, settings.api_cache_ttl_seconds)
+        self._memory_cache_max_entries = max(0, settings.api_cache_memory_max_entries)
+        self._memory_cache_max_bytes = max(0, settings.api_cache_memory_max_bytes)
+        self._memory_cache_max_payload_bytes = max(0, settings.api_cache_memory_max_payload_bytes)
         self._redis: Redis | None = None
         self._redis_init_lock = asyncio.Lock()
         self._redis_init_failed = False
         self._inflight_loads: dict[str, asyncio.Task[Any]] = {}
         self._inflight_lock = asyncio.Lock()
-        self._memory_cache: dict[str, tuple[float, str]] = {}
+        self._memory_cache: OrderedDict[str, tuple[float, str, int]] = OrderedDict()
+        self._memory_cache_bytes = 0
 
     @property
     def enabled(self) -> bool:
@@ -121,6 +125,7 @@ class ApiResponseCache:
     async def close(self) -> None:
         """Close cache resources."""
         self._memory_cache.clear()
+        self._memory_cache_bytes = 0
         client = self._redis
         self._redis = None
         if client is None:
@@ -150,18 +155,44 @@ class ApiResponseCache:
         Returns:
             The resulting value.
         """
-        if not self._enabled:
+        if not self._memory_cache_enabled():
             return None
 
         cached = self._memory_cache.get(full_key)
         if cached is None:
             return None
 
-        expires_at, payload = cached
+        expires_at, payload, _ = cached
         if expires_at <= time.monotonic():
-            self._memory_cache.pop(full_key, None)
+            self._delete_memory_payload(full_key)
             return None
+        self._memory_cache.move_to_end(full_key)
         return payload
+
+    def _memory_cache_enabled(self) -> bool:
+        """Return whether the local in-process cache can store payloads.
+
+        Returns:
+            True when the in-process cache is configured to store payloads.
+        """
+        return (
+            self._enabled
+            and self._memory_cache_max_entries > 0
+            and self._memory_cache_max_bytes > 0
+            and self._memory_cache_max_payload_bytes > 0
+        )
+
+    def _delete_memory_payload(self, full_key: str) -> None:
+        """Delete a cached in-memory payload and update byte accounting.
+
+        Args:
+            full_key: Fully namespaced cache key to remove.
+        """
+        cached = self._memory_cache.pop(full_key, None)
+        if cached is None:
+            return
+        _, _, payload_size = cached
+        self._memory_cache_bytes = max(0, self._memory_cache_bytes - payload_size)
 
     def _write_memory_payload(self, *, full_key: str, payload: str, ttl: int) -> None:
         """Write memory payload.
@@ -171,19 +202,35 @@ class ApiResponseCache:
             payload: JSON-serialized cache payload.
             ttl: Time-to-live in seconds.
         """
-        if not self._enabled:
+        if not self._memory_cache_enabled():
             return
 
-        if full_key not in self._memory_cache and len(self._memory_cache) >= _MEMORY_CACHE_MAX_ENTRIES:
-            now = time.monotonic()
-            expired_keys = [key for key, (expires_at, _) in self._memory_cache.items() if expires_at <= now]
-            for key in expired_keys:
-                self._memory_cache.pop(key, None)
-            if len(self._memory_cache) >= _MEMORY_CACHE_MAX_ENTRIES:
-                oldest_key = next(iter(self._memory_cache))
-                self._memory_cache.pop(oldest_key, None)
+        payload_size = len(payload.encode("utf-8"))
+        if payload_size > self._memory_cache_max_payload_bytes or payload_size > self._memory_cache_max_bytes:
+            self._delete_memory_payload(full_key)
+            return
 
-        self._memory_cache[full_key] = (time.monotonic() + float(ttl), payload)
+        now = time.monotonic()
+        expired_keys = [
+            key for key, (expires_at, _, _) in self._memory_cache.items() if expires_at <= now
+        ]
+        for key in expired_keys:
+            self._delete_memory_payload(key)
+
+        existing = self._memory_cache.get(full_key)
+        if existing is not None:
+            self._memory_cache_bytes = max(0, self._memory_cache_bytes - existing[2])
+            self._memory_cache.pop(full_key, None)
+
+        while self._memory_cache and (
+            len(self._memory_cache) >= self._memory_cache_max_entries
+            or self._memory_cache_bytes + payload_size > self._memory_cache_max_bytes
+        ):
+            oldest_key = next(iter(self._memory_cache))
+            self._delete_memory_payload(oldest_key)
+
+        self._memory_cache[full_key] = (time.monotonic() + float(ttl), payload, payload_size)
+        self._memory_cache_bytes += payload_size
 
     async def _write(
         self,
@@ -244,7 +291,7 @@ class ApiResponseCache:
                 logger.debug("api.cache_hit", key=full_key, cache_layer="memory")
                 return value
             except Exception:
-                self._memory_cache.pop(full_key, None)
+                self._delete_memory_payload(full_key)
 
         redis_client = await self._redis_client()
         if redis_client is not None:
