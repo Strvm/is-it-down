@@ -42,3 +42,10 @@ variable "default_uri_disabled" {
   type    = bool
   default = false
 }
+
+
+
+variable "memory" {
+  type    = string
+  default = "512Mi"
+}
