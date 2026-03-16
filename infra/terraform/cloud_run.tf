@@ -194,6 +194,7 @@ module "cloud_run_api_service" {
   service_account_email = google_service_account.api_runtime.email
   default_uri_disabled  = terraform.workspace == "prod" && local.custom_domain_enabled
   min_instance_count    = 0
+  memory = "1024Mi"
   container_port        = 8080
   allow_public_invoker  = true
   env_vars = {
